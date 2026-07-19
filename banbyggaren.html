@@ -1,0 +1,429 @@
+<!DOCTYPE html><html lang="sv"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Banbyggaren</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#1b1030;font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;color:#f4f0ff;touch-action:none;overscroll-behavior:none}
+#top{display:flex;gap:8px;align-items:center;padding:8px 12px;background:#231d36;border-bottom:1px solid #4b3f6b;flex-wrap:wrap}
+#top b{color:#f4d64a;font-size:17px;margin-right:6px}
+.btn{font-family:inherit;border:1px solid #4b3f6b;background:#3d3159;color:#f4f0ff;border-radius:10px;padding:9px 12px;font-size:14px;cursor:pointer;min-height:40px}
+.btn.gold{background:#f4d64a;color:#2b2440;font-weight:700;border-color:#f4d64a}
+.btn.on{background:#f4d64a;color:#2b2440;font-weight:700;border-color:#f4d64a}
+#main{display:flex;height:calc(100% - 52px)}
+#tools{width:120px;background:#2a2340;border-right:1px solid #4b3f6b;padding:8px;display:flex;flex-direction:column;gap:6px;overflow:auto}
+#tools .btn{padding:8px 6px;font-size:13px;text-align:left}
+#stage{flex:1;position:relative;display:flex;flex-direction:column;min-width:0}
+#cv{flex:1;width:100%;height:100%;background:#8fd3f0;image-rendering:pixelated;touch-action:none}
+#scrollrow{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#231d36;border-top:1px solid #4b3f6b}
+#scroll{flex:1;accent-color:#f4d64a}
+#hint{position:absolute;left:8px;top:8px;background:rgba(20,12,40,.6);padding:6px 10px;border-radius:8px;font-size:12.5px;max-width:60%;pointer-events:none}
+#gbtns{position:absolute;inset:auto 0 0 0;display:none;justify-content:space-between;padding:12px 16px;pointer-events:none}
+#gbtns .pad{display:flex;gap:10px;pointer-events:auto}
+.tbtn{width:66px;height:66px;border-radius:50%;border:3px solid rgba(255,255,255,.6);background:rgba(20,12,40,.4);color:#fff;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.tbtn:active{background:rgba(244,214,74,.85);color:#2b2440}
+#gJump{width:80px;height:80px;font-size:16px}
+.playing #tools,.playing #scrollrow,.playing #hint{display:none}
+.playing #gbtns{display:flex}
+#modal{position:fixed;inset:0;background:rgba(10,7,20,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:60}
+#modal.on{display:flex}
+#lvmodal{position:fixed;inset:0;background:rgba(10,7,20,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:60}#lvmodal.on{display:flex}
+#lvlist{max-height:50vh;overflow:auto;margin:6px 0}
+.sheet{background:#342a4f;border:1px solid #4b3f6b;border-radius:16px;padding:18px;max-width:520px;width:100%}
+.sheet h3{margin:0 0 8px}.sheet p{color:#b9aede;font-size:13.5px;line-height:1.5}
+.mbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+</style></head><body>
+<div id="top">
+ <b>Banbyggaren</b>
+ <button class="btn gold" id="play">▶ Testa</button>
+ <button class="btn" id="stop" style="display:none">■ Stopp</button>
+ <button class="btn" id="save">Spara bana</button>
+ <button class="btn" id="load">Öppna bana</button>
+ <button class="btn gold" id="export">Exportera spel</button>
+ <button class="btn" id="clear">Rensa</button>
+ <button class="btn" id="saveLS">Spara i appen</button>
+ <button class="btn" id="mylevels">★ Mina banor</button>
+ <a class="btn" href="index.html" style="text-decoration:none;line-height:22px">☰ Meny</a>
+ <span style="color:#b9aede;font-size:12.5px">Bredd</span>
+ <input id="lw" type="number" value="4200" style="width:72px;background:#231d36;border:1px solid #4b3f6b;color:#fff;border-radius:8px;padding:8px">
+ <select id="theme" title="Tema" style="background:#231d36;border:1px solid #4b3f6b;color:#fff;border-radius:8px;padding:8px">
+   <option value="green">🌱 Gräs</option><option value="desert">🏜️ Öken</option><option value="ice">❄️ Is</option>
+ </select>
+</div>
+<div id="main">
+ <div id="tools"></div>
+ <div id="stage">
+   <canvas id="cv" width="880" height="480"></canvas>
+   <div id="hint"></div>
+   <div id="gbtns"><div class="pad"><div class="tbtn" id="gLeft">◀</div><div class="tbtn" id="gRight">▶</div></div><div class="pad"><div class="tbtn" id="gJump">HOPP</div></div></div>
+   <div id="scrollrow"><span style="font-size:12px;color:#b9aede">Rulla</span><input id="scroll" type="range" min="0" max="4000" value="0"></div>
+ </div>
+</div>
+<input type="file" id="loadFile" accept="application/json,.json,text/plain" style="display:none">
+<div id="modal"><div class="sheet"><h3 id="mTitle"></h3><p id="mHelp"></p><div class="mbtns">
+ <button class="btn gold" id="mShare" style="display:none">Dela…</button>
+ <button class="btn" id="mDownload">Ladda ner</button>
+ <button class="btn" id="mClose">Stäng</button></div></div>
+<div id="lvmodal"><div class="sheet"><h3>Mina banor</h3><div id="lvlist"></div><div class="mbtns"><button class="btn" id="lvClose">Stäng</button></div></div></div></div>
+<script src="engine.js"></script>
+<script>
+
+const ASSETS = {"piggy": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABsAAAAdCAYAAABbjRdIAAABLElEQVR42mP4//8/A7lYW9PkPyl8iiz6fM3rP8xAQnyyLYMZ9DKqAm7g52te/8unvUDhV5zoRrGQiYECwFVzCYVf45CEwq/m24/Cp8gyGDixVgwvn6BlOlqm/3W0TP8zUBEwMdARMP7//x/DR9S25Mq104wMDAwMLNgkd+Q2MTAwMDC8evacQUxKEi5OLN9jch3cAqKCkVyL8AEWWlmELTpYsAlSYtGrZ89RogIGPCbXQXyGLOExuY5mQclCqzhDdjSKZegS1PARttTIgi6oo2X6nxpxRnIJQu04o2s+Y6KXRTgto1Wc0awgJqlspAXAW+rD8iC2ogefGmwZenD4DB3gcimpagha9vHTGwwxfj4RgmrISo3kWvb4yX1Ggj4jRqOsjOJ/Ygwf0AQCAHi8yiw2Z854AAAAAElFTkSuQmCC", "piggyA": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABsAAAAdCAYAAABbjRdIAAABLElEQVR42mP4//8/A7lYW9PkPyl8iiz6fM3rP8xAQnyyLYMZ9DKqAm7g52te/8unvUDhV5zoRrGQiYECwFVzCYVf45CEwq/m24/Cp8gyGDixVgwvn6BlOlqm/3W0TP8zUBEwMdARMP7//x/DR9S25Mq104wMDAwMLNgkd+Q2MTAwMDC8evacQUxKEi5OLN9jch3cAqKCkVyL8AEWWlmELTpYsAlSYtGrZ89RogIGPCbXQXyGLOExuY5mQclCqzhDdjSKZegS1PARttTIgi6oo2X6nxpxRnIJQu04o2s+Y6KXRTgto1Wc0awgJqlspAXAW+rD8iC2ogefGmwZenD4DB3gcimpagha9vHTGwwxfj4RgmrISo3kWvb4yX1Ggj4jRqOsjOJ/Ygwf0AQCAHi8yiw2Z854AAAAAElFTkSuQmCC", "piggyB": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABsAAAAdCAYAAABbjRdIAAABMElEQVR42mP4//8/A7lYW9PkPyl8iiz6fM3rP8xAQnyyLYMZ9DKqAm7g52te/8unvUDhV5zoRrGQiYECwFVzCYVf45CEwq/m24/Cp8gyGDixVgwvn6BlOlqm/3W0TP8zUBEwMdARMP7//x/DR9S25Mq104wMDAwMLNgkd+Q2MTAwMDC8evacQUxKEi5OLN9jch1WD7Dgcg25FqE7GAY8JtdhjzNKLcIFsPqMEotePXsO9wlRllHDh7BEgWIZrtRHi6BkQY9Mj8l1NIszJlrFGU6fYYtMWgQlC3pEwuKQFkFJ13xG1zijWUGMLZ/RtYrBW+rDUiq2QhWfGlype+B9hstlpKohaNnHT29Q+Px8IgzkqCEqNcrKKP6nhmVYS310gcdP7jPisxybOlxqBjSBAACbW8NzkgCHJgAAAABJRU5ErkJggg==", "liggy": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAhCAYAAAAyCTAQAAABN0lEQVR42s2VTW7DIBSEB4SaKjfoDepm2exygl4j5+kZWHVR9SxWF5UsL3qA3CByuuh09SKMDY75kfokhEDw8RgGAEnEytPjM93a74+VRfDn1zfdWvpfmwOXFtAIxK7Z8+3jHQAg9drQayfsmj2P6h6ny3lxrCI5CwhNEPDDZgvLAV3fqpvhkpmEgEJtywEAZhfRqWDLAZYD3PF+mFRw17cyL36ga6UIHbR/VmYt+HQ547jZXjN++fkd7WhWllvB0nZdE3KaSQHHduS6yJQCi+8nspQC+15P0nyU4Z0GAjfVlMgw6vMa4Cu8BnjytpQEj+ApV76I5lnwJc2z4LWk0fIOVNFcXFBDc+P/he6VLnKg8j7H6iy474ocl0zgvsbFfO6G/+DbDO01KoYiOfpUu75VfvtfZv4HPB+jqHnQCHAAAAAASUVORK5CYII=", "liggyB": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAhCAYAAAAyCTAQAAABO0lEQVR42rWWzY3CMBCFXyxrWdEBHZDluNyoYNugHmrIiQPaWqI9IEU5UAAdoMBhh9MgZxI72BmPFFm24s/j5+cfEBFC39f6m9xStoe+SfDf+UJuye2HckdTAxh4YlNu6fh7AgBwGRsmtsOm3NK++MT1fpv8tyCiUYCvA4NXiyUq6tC0dfE2nDPjYJCvXlEHAKODmFRwRR0q6uD+L8Omgpu25n7hBY2VwrfQcq1sLPh6v2G/WL4y/nn892Y0Ksu7YK67rvE5zaaAQzNyXWS1wOz7gSxaYOn1JM17GX4YwLNTrUaGQZ/nAL/gOcCDs0UT3IOnbHkVzWfBpzSfBc8ljeFzIIvm7IIcmlt5F7pbWmVB+XwOlbPg0hVzXDKAS43VfO5qzhnLuspzTnMGvReXe7k2bV3IevaHaEw8ASNjqajGVQYbAAAAAElFTkSuQmCC", "ziggy": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAfCAYAAADnTu3OAAABSUlEQVR42q1VQarCMBCdlhzARcETfLR2acEj/L1bD/DBXXMAFz2A7gQP4NZ9jyC4FSk9gdBFD/BhXFU0TiYz6kCgSZPHzHuTF0BEkIzJeIrUtzsMCCJLc6xsCVmaY2hvDIqobAmVLdk9ESKKMnTXzpdTRG5WcoiIiByHqpIlESyZE4Iq24TAkt0WurqBwejnvt7VDfyvN+QZowFr/5ZBUVgOXbDjYQgf9eFjmcYWMJtfg6AxVy6V6Wx+ZcV6UZkDo2hwuRRzSM1VHIbAurqRA0rAfJmSN6UnPNTUVC/G3JXiMlM1dpbmaGzhBUt2W2/bGN8PiSDUWdM78WKUkBffV3brcLyvW/hdryCajKdkhj5BKKN4ypAiN0tzlLSKWGUphyrHDj2Zb/mhscX9cA/waBwf+aE0vv7qqQE5QUR+qKWBBaSeSl9D93ED5tZQ43vxUjUAAAAASUVORK5CYII=", "bossUp": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABPUlEQVR42tWUPWrDQBCF3wodIaA+RXAccOOATqBeqEjpk6TYQjcIBEI6lyp8AZ/AoCogBCrc6xSbajajjXZHP7jwgECrWX1vZmdnlDEGkr08vxoAaNpaYabFU+CZruz7XJFoKry/dsh0ZbNZLeDCk8cnAJgtEs2B05rXRTK13eztxqatFf2Y6WoUTuuzfoOv8Fw8Ihh3TIWPgYmxO5R/AlTA0LFweNPWePj6HI060xV2h9LuHxwRRf5zfEcoE/L7jpX7FTUa30SR8kjoG/ndo3LhVBvFO9m9GRzWXzt85x9Ii/5fZm5NeOFjn4OL2cjyBJdTgrQYZhIaI+Ko4JGmRT+a2eJZ5Hawr+Ch+eTtZLfAS+DBWSTB+XrxNF0LFwXWwoMCEly6PeIt4u2+yowx4rPd7E1oHXoi3NjuX+AXi4o7Efyrcd0AAAAASUVORK5CYII=", "bossDown": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABRElEQVR42tWVPWrDQBCF3y46QkC9C+MfcGODT6A+uHDpk6TYwjcIBEK6lCpyAZ/AoCogBC7c6xSTapbxWNLuWkmRgQUN7H4zb98sMkSEUCznGwKAuqkMEiOLgReu9N+pRWwsvL1eULjSqxldQMPzyRQAkovYFDjn0pfkAvJgFzyfTCE9eUhB4cpeOACc3H6cByF43VR4en+LKmD63gH70FXs+/PF56GxHRxTDT+5vfdA+jDkxY0CvZEhXOzj+RXbXXvnkfZEqrIaXrgSq8PxTglfy/kr90p0M13TZaVE7kzesex0u2u9Av0uWAU3x1yzmK1vHpWErw7H3mmS++umMrJJ6VkmExkpcL735XxDWomV8LqpDB8IwbUH+jzfRBaa41h4cIp+Cx790EJwnp6H/2hymkYFEQXXYramoXxoWfxx/P8CP4nAP9JEnxIkAAAAAElFTkSuQmCC"};
+let level = {"width": 4200, "groundY": 410, "start": {"x": 80, "y": 300}, "grounds": [{"x": -40, "y": 410, "w": 1140, "h": 120}, {"x": 1260, "y": 410, "w": 1000, "h": 120}, {"x": 2420, "y": 410, "w": 1820, "h": 120}], "ledges": [{"x": 360, "y": 320, "w": 150, "h": 18}, {"x": 700, "y": 285, "w": 140, "h": 18}, {"x": 1500, "y": 300, "w": 170, "h": 18}, {"x": 2600, "y": 300, "w": 160, "h": 18}], "coins": [{"x": 400, "y": 285}, {"x": 740, "y": 250}, {"x": 1180, "y": 360}, {"x": 1560, "y": 265}, {"x": 2000, "y": 360}, {"x": 2650, "y": 265}, {"x": 3200, "y": 360}], "enemies": [{"x": 600}, {"x": 1600}, {"x": 2700}, {"x": 3400}], "friends": [{"key": "liggy", "x": 1560, "y": 300}, {"key": "ziggy", "x": 2680, "y": 300}], "boss": {"x": 3900, "y": 150}};
+// Motorn (window.runGame) laddas från engine.js — EN källa för banbyggaren, äventyret och exporten.
+let ENGINE_SRC=null;
+async function getEngineSrc(){ if(ENGINE_SRC)return ENGINE_SRC;
+  const r=await fetch('engine.js'); if(!r.ok)throw new Error('http '+r.status);
+  ENGINE_SRC=await r.text(); return ENGINE_SRC; }
+
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d'); ctx.imageSmoothingEnabled=false;
+const VW=cv.width, VH=cv.height, GRID=20, GROUND=410;
+const IMG={}; Object.keys(ASSETS).forEach(k=>{const im=new Image();im.src=ASSETS[k];IMG[k]=im;});
+let scrollX=0, tool='ground', drag=null, gameHandle=null, playing=false;
+
+const TOOLS=[['ground','\u2b1b Mark'],['ledge','\u2796 Avsats'],['crumble','\ud83e\uddf1 Rasavsats'],['bounce','\ud83d\udfe1 Studs'],['coin','\ud83e\ude99 Mynt'],
+ ['enemy','\ud83d\udc7e Fiende'],['liggy','\ud83d\udc0e LiggyLiggy'],['ziggy','\ud83d\udc10 ZiggyZiggy'],
+ ['boss','\ud83d\udc51 Boss'],['shop','\ud83c\udfea Aff\u00e4r'],['start','\ud83d\udc37 Start'],['move','\u270b Flytta'],['erase','\u274c Sudda']];
+const tbox=document.getElementById('tools');
+TOOLS.forEach(([t,label])=>{const b=document.createElement('button');b.className='btn'+(t===tool?' on':'');b.textContent=label;b.dataset.t=t;
+  b.onclick=()=>{tool=t;[...tbox.children].forEach(c=>c.classList.toggle('on',c.dataset.t===t));setHint();};tbox.appendChild(b);});
+
+const hintEl=document.getElementById('hint');
+function setHint(){const m={ground:'Dra i sidled p\u00e5 marklinjen f\u00f6r att skapa mark. L\u00e4mna mellanrum = h\u00e5l.',
+  ledge:'Dra f\u00f6r att rita en avsats i luften.',coin:'Tryck f\u00f6r att l\u00e4gga ett mynt.',
+  enemy:'Tryck p\u00e5 marken f\u00f6r att l\u00e4gga en fiende.',liggy:'Tryck f\u00f6r att placera LiggyLiggy.',
+  ziggy:'Tryck f\u00f6r att placera ZiggyZiggy.',boss:'Tryck f\u00f6r att placera bossen IsIs.',shop:'Tryck d\u00e4r aff\u00e4ren ska st\u00e5 \u2014 hoppa i den i spelet f\u00f6r att handla.',move:'Dra ett f\u00f6rem\u00e5l f\u00f6r att flytta det (fiender tar med sig sin patrullstr\u00e4cka).',crumble:'Dra f\u00f6r att rita en avsats som rasar n\u00e4r man st\u00e5r p\u00e5 den.',bounce:'Tryck p\u00e5 marklinjen f\u00f6r att l\u00e4gga en studsplatta.',
+  start:'Tryck d\u00e4r PiggyPiggy ska starta.',erase:'Tryck p\u00e5 ett f\u00f6rem\u00e5l f\u00f6r att ta bort det.'};
+  hintEl.textContent=m[tool]||'';}
+setHint();
+
+function snap(v){return Math.round(v/GRID)*GRID;}
+function worldX(sx){return sx*(VW/cv.clientWidth)+scrollX;}
+function worldY(sy){return sy*(VH/cv.clientHeight);}
+function evPos(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*VW+scrollX,y:(e.clientY-r.top)/r.height*VH};}
+
+const scroll=document.getElementById('scroll');
+function syncScroll(){scroll.max=Math.max(0,(level.width||4200)-VW);scroll.value=scrollX;}
+scroll.oninput=()=>{scrollX=+scroll.value;};
+document.getElementById('lw').onchange=e=>{level.width=Math.max(VW,+e.target.value|0);syncScroll();};
+
+// pointer editing
+let mv=null;
+cv.addEventListener('pointerdown',e=>{ if(playing)return; e.preventDefault(); const p=evPos(e);
+  if(tool==='move'){ const hit=findObj(p); if(hit) mv={hit:hit,offx:p.x-hit.o.x,offy:p.y-(hit.o.y!=null?hit.o.y:GROUND),startX:hit.o.x}; return; }
+  if(tool==='ground'||tool==='ledge'||tool==='crumble'){ drag={x0:p.x,y0:p.y,x1:p.x,y1:p.y}; }
+  else if(tool==='erase'){ eraseAt(p); }
+  else placeAt(p); });
+cv.addEventListener('pointermove',e=>{ if(playing)return; const p=evPos(e);
+  if(mv){ const o=mv.hit.o,a=mv.hit.arr; o.x=p.x-mv.offx;
+    if(a!=='grounds'&&a!=='enemies'&&o.y!=null) o.y=p.y-mv.offy; return; }
+  if(!drag)return; drag.x1=p.x; drag.y1=p.y; });
+cv.addEventListener('pointerup',e=>{ if(playing)return;
+  if(mv){ const o=mv.hit.o,a=mv.hit.arr, dx=snap(o.x)-Math.round(mv.startX);
+    o.x=snap(o.x);
+    if(a==='enemies'){ if(o.lo!=null)o.lo+=dx; if(o.hi!=null)o.hi+=dx; }
+    if(o.y!=null){ o.y=snap(o.y);
+      if(a==='friends'||a==='shops')o.y=Math.min(o.y,GROUND);
+      if(a==='start')o.y=Math.min(o.y,GROUND-60);
+      if(a==='ledges')o.y=Math.min(o.y,GROUND-40); }
+    mv=null; return; }
+  if(!drag)return; const a=drag; drag=null;
+  const x=snap(Math.min(a.x0,a.x1)), w=snap(Math.abs(a.x1-a.x0));
+  if(tool==='ground'){ if(w>=GRID) (level.grounds=level.grounds||[]).push({x:x,y:GROUND,w:Math.max(w,GRID),h:120}); }
+  else if(tool==='ledge'||tool==='crumble'){ const y=snap(Math.min(a.y0,a.y1));
+    if(w>=GRID){ const o={x:x,y:Math.min(y,GROUND-40),w:Math.max(w,GRID),h:18}; if(tool==='crumble')o.crumble=true;
+      (level.ledges=level.ledges||[]).push(o); } }
+});
+function placeAt(p){ const x=snap(p.x), y=snap(p.y);
+  if(tool==='coin') (level.coins=level.coins||[]).push({x:x,y:y});
+  else if(tool==='enemy') (level.enemies=level.enemies||[]).push({x:x,lo:x-110,hi:x+110});
+  else if(tool==='liggy') (level.friends=level.friends||[]).push({key:'liggy',x:x,y:Math.min(y,GROUND)});
+  else if(tool==='ziggy') (level.friends=level.friends||[]).push({key:'ziggy',x:x,y:Math.min(y,GROUND)});
+  else if(tool==='boss') level.boss={x:x,y:150};
+  else if(tool==='shop') (level.shops=level.shops||[]).push({x:x,y:Math.min(y,GROUND)});
+  else if(tool==='bounce') (level.bouncers=level.bouncers||[]).push({x:x});
+  else if(tool==='start') level.start={x:x,y:Math.min(y,GROUND-60)};
+}
+function findObj(p){
+  var near=function(ax,ay,d){return Math.hypot(ax-p.x,ay-p.y)<d;};
+  var pts=[['coins',function(o){return [o.x,o.y,26];}],
+           ['enemies',function(o){return [o.x,GROUND-16,30];}],
+           ['friends',function(o){return [o.x,(o.y||GROUND)-30,34];}],
+           ['shops',function(o){return [o.x,(o.y||GROUND)-32,44];}]];
+  for(var k=0;k<pts.length;k++){ var arr=pts[k][0],fn=pts[k][1],a=level[arr]||[];
+    for(var i=0;i<a.length;i++){ var c=fn(a[i]); if(near(c[0],c[1],c[2]))return {arr:arr,o:a[i]}; } }
+  var bs=level.bouncers||[];
+  for(var q=0;q<bs.length;q++){ if(near(bs[q].x,GROUND-12,28))return {arr:'bouncers',o:bs[q]}; }
+  if(level.boss&&near(level.boss.x,level.boss.y+40,50))return {arr:'boss',o:level.boss};
+  if(level.start&&near(level.start.x,(level.start.y||300)+30,40))return {arr:'start',o:level.start};
+  var rects=['ledges','grounds'];
+  for(var r=0;r<rects.length;r++){ var b=level[rects[r]]||[];
+    for(var j=0;j<b.length;j++){ var o=b[j]; if(p.x>=o.x&&p.x<=o.x+o.w&&p.y>=o.y-6&&p.y<=o.y+o.h)return {arr:rects[r],o:o}; } }
+  return null;
+}
+function eraseAt(p){
+  const near=(ax,ay,d)=>Math.hypot(ax-p.x,ay-p.y)<(d||26);
+  for(const arr of ['coins','enemies','friends','shops','bouncers']){ const a=level[arr]||[];
+    for(let i=0;i<a.length;i++){ const o=a[i];
+      const oy=(arr==='enemies')?GROUND-16:(arr==='shops')?(o.y||GROUND)-32:(arr==='bouncers')?GROUND-12:(o.y||GROUND);
+      if(near(o.x,oy,arr==='shops'?44:28)){a.splice(i,1);return;} } }
+  if(level.boss&&near(level.boss.x,level.boss.y+40,50)){level.boss=null;return;}
+  for(const arr of ['ledges','grounds']){ const a=level[arr]||[];
+    for(let i=0;i<a.length;i++){ const o=a[i]; if(p.x>=o.x&&p.x<=o.x+o.w&&p.y>=o.y-6&&p.y<=o.y+o.h){a.splice(i,1);return;} } }
+}
+
+// ---- editor drawing ----
+function drawGhost(img,cx,feetY,H,flip){const sc=H/img.height,w=img.width*sc;ctx.save();ctx.globalAlpha=0.95;ctx.translate(cx,feetY-H);if(flip){ctx.translate(w,0);ctx.scale(-1,1);}ctx.drawImage(img,0,0,w,H);ctx.restore();}
+function render(){
+  ctx.clearRect(0,0,VW,VH);
+  const ET={green:{s0:'#8fd3f0',s1:'#cdeefb',top:'#6bbf59',body:'#8a5a2b'},
+            desert:{s0:'#8ec9e8',s1:'#f0dca6',top:'#e8c579',body:'#c99a5b'},
+            ice:{s0:'#8fb8de',s1:'#eaf5fb',top:'#eef8ff',body:'#6fa9cf'}}[level.theme||'green'];
+  const g=ctx.createLinearGradient(0,0,0,VH);g.addColorStop(0,ET.s0);g.addColorStop(1,ET.s1);ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);
+  // grid
+  ctx.strokeStyle='rgba(43,36,64,.10)';ctx.lineWidth=1;ctx.beginPath();
+  for(let gx=-(scrollX%GRID);gx<VW;gx+=GRID){ctx.moveTo(gx,0);ctx.lineTo(gx,VH);}
+  for(let gy=0;gy<VH;gy+=GRID){ctx.moveTo(0,gy);ctx.lineTo(VW,gy);}ctx.stroke();
+  // ground line marker
+  ctx.strokeStyle='rgba(43,36,64,.25)';ctx.beginPath();ctx.moveTo(0,GROUND);ctx.lineTo(VW,GROUND);ctx.stroke();
+  // grounds & ledges
+  (level.grounds||[]).forEach(o=>{const x=o.x-scrollX;ctx.fillStyle=ET.top;ctx.fillRect(x,o.y,o.w,10);ctx.fillStyle=ET.body;ctx.fillRect(x,o.y+10,o.w,o.h-10);});
+  (level.ledges||[]).forEach(o=>{const x=o.x-scrollX;ctx.fillStyle=ET.body;ctx.fillRect(x,o.y,o.w,o.h);ctx.fillStyle=ET.top;ctx.fillRect(x,o.y,o.w,6);
+    if(o.crumble){ctx.strokeStyle='rgba(60,40,20,.6)';ctx.lineWidth=2;ctx.beginPath();
+      ctx.moveTo(x+o.w*0.3,o.y+3);ctx.lineTo(x+o.w*0.38,o.y+o.h-3);
+      ctx.moveTo(x+o.w*0.66,o.y+2);ctx.lineTo(x+o.w*0.6,o.y+o.h-2);ctx.stroke();}});
+  (level.bouncers||[]).forEach(o=>{const x=o.x-scrollX;
+    ctx.fillStyle='#2a2830';ctx.fillRect(x-10,GROUND-6,20,6);
+    ctx.fillStyle='#e05a78';ctx.fillRect(x-23,GROUND-20,46,18);
+    ctx.fillStyle='#f4d64a';ctx.fillRect(x-19,GROUND-18,38,5);
+    ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=3;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(x-7,GROUND-30);ctx.lineTo(x,GROUND-37);ctx.lineTo(x+7,GROUND-30);ctx.stroke();});
+  // coins
+  (level.coins||[]).forEach(o=>{const x=o.x-scrollX;ctx.fillStyle='#f4d64a';ctx.beginPath();ctx.arc(x,o.y,9,0,7);ctx.fill();ctx.fillStyle='#caa72f';ctx.beginPath();ctx.arc(x,o.y,5,0,7);ctx.fill();});
+  // enemies
+  (level.enemies||[]).forEach(o=>{const x=o.x-scrollX;ctx.fillStyle='#5b3b8c';ctx.fillRect(x-17,GROUND-30,34,30);ctx.fillStyle='#fff';ctx.fillRect(x-8,GROUND-22,7,8);ctx.fillRect(x+2,GROUND-22,7,8);
+    ctx.strokeStyle='rgba(91,59,140,.5)';ctx.beginPath();ctx.moveTo((o.lo||o.x-110)-scrollX,GROUND+4);ctx.lineTo((o.hi||o.x+110)-scrollX,GROUND+4);ctx.stroke();});
+  // friends
+  (level.friends||[]).forEach(o=>{ if(IMG[o.key].complete) drawGhost(IMG[o.key],o.x-scrollX,(o.y||GROUND),o.key==='liggy'?66:60,o.key==='liggy'); });
+  // affärer
+  (level.shops||[]).forEach(function(o){ var x=o.x-scrollX, base=o.y||GROUND;
+    ctx.fillStyle='#2a2830';ctx.fillRect(x-32,base-54,5,54);ctx.fillRect(x+27,base-54,5,54);
+    for(var i=0;i<6;i++){ctx.fillStyle=i%2?'#fff':'#f4d64a';ctx.fillRect(x-38+i*(76/6),base-66,76/6,12);}
+    ctx.fillStyle='#2a2830';ctx.fillRect(x-38,base-70,76,4);
+    ctx.fillStyle='#8a5a2b';ctx.fillRect(x-28,base-26,56,26);
+    ctx.fillStyle='#f4d64a';ctx.beginPath();ctx.arc(x,base-34,8,0,7);ctx.fill();
+    ctx.fillStyle='#caa72f';ctx.beginPath();ctx.arc(x,base-34,4.5,0,7);ctx.fill(); });
+  // boss
+  if(level.boss&&IMG.bossUp.complete) drawGhost(IMG.bossUp,level.boss.x-scrollX,level.boss.y+104,104,false);
+  // start
+  if(level.start&&IMG.piggy.complete){ drawGhost(IMG.piggy,level.start.x-scrollX,(level.start.y||300)+60,60,false);
+    ctx.fillStyle='#f4d64a';ctx.font='bold 12px system-ui';ctx.fillText('START',level.start.x-scrollX-18,(level.start.y||300)-4);}
+  // flytt-markering
+  if(mv){ const o=mv.hit.o,a=mv.hit.arr;
+    ctx.strokeStyle='#f4d64a'; ctx.lineWidth=2; ctx.setLineDash([6,4]);
+    if(a==='grounds'||a==='ledges'){ ctx.strokeRect(o.x-scrollX-3,o.y-3,o.w+6,o.h+6); }
+    else { const oy=(a==='enemies')?GROUND-16:(a==='boss')?o.y+40:(a==='start')?(o.y||300)+30:(a==='shops')?(o.y||GROUND)-32:(a==='friends')?(o.y||GROUND)-30:o.y;
+      ctx.beginPath(); ctx.arc(o.x-scrollX,oy,40,0,7); ctx.stroke(); }
+    ctx.setLineDash([]); }
+  // drag preview
+  if(drag){const x=Math.min(drag.x0,drag.x1)-scrollX,w=Math.abs(drag.x1-drag.x0);
+    ctx.fillStyle='rgba(244,214,74,.5)'; if(tool==='ground')ctx.fillRect(snap(Math.min(drag.x0,drag.x1))-scrollX,GROUND,snap(w),120);
+    else ctx.fillRect(snap(Math.min(drag.x0,drag.x1))-scrollX,snap(Math.min(drag.y0,drag.y1)),snap(w),18);}
+  // right edge marker
+  const ex=(level.width||4200)-scrollX; if(ex<VW){ctx.fillStyle='rgba(230,90,120,.35)';ctx.fillRect(ex,0,VW-ex,VH);
+    ctx.fillStyle='#e05a78';ctx.font='bold 13px system-ui';ctx.save();ctx.translate(ex+8,40);ctx.fillText('M\u00c5L / slut',0,0);ctx.restore();}
+}
+function editorLoop(){ if(!playing){ syncScroll(); render(); } requestAnimationFrame(editorLoop); }
+editorLoop();
+
+// keyboard scroll
+addEventListener('keydown',e=>{ if(playing)return; if(e.code==='ArrowRight')scrollX=Math.min((level.width||4200)-VW,scrollX+GRID*2);
+  if(e.code==='ArrowLeft')scrollX=Math.max(0,scrollX-GRID*2); });
+cv.addEventListener('wheel',e=>{ if(playing)return; e.preventDefault(); scrollX=Math.max(0,Math.min((level.width||4200)-VW,scrollX+e.deltaY+e.deltaX)); },{passive:false});
+
+// ---- play / stop ----
+document.getElementById('play').onclick=()=>{ startPlay(); };
+document.getElementById('stop').onclick=()=>{ stopPlay(); };
+function startPlay(){ playing=true; document.body.classList.add('playing');
+  document.getElementById('play').style.display='none'; document.getElementById('stop').style.display='';
+  level.width=Math.max(VW,+document.getElementById('lw').value|0);
+  gameHandle=window.runGame(cv, JSON.parse(JSON.stringify(level)), ASSETS, {}); }
+function stopPlay(){ playing=false; document.body.classList.remove('playing');
+  document.getElementById('play').style.display=''; document.getElementById('stop').style.display='none';
+  if(gameHandle){gameHandle.stop();gameHandle=null;} ctx.imageSmoothingEnabled=false; }
+
+// ---- save / load / export via modal ----
+const modal=document.getElementById('modal'); let curBlob=null,curName='';
+function openModal(title,help,blob,name){document.getElementById('mTitle').textContent=title;document.getElementById('mHelp').innerHTML=help;
+  curBlob=blob;curName=name;
+  let canShare=false;try{canShare=navigator.canShare&&navigator.canShare({files:[new File([blob],name,{type:blob.type})]});}catch(e){}
+  document.getElementById('mShare').style.display=canShare?'':'none'; modal.classList.add('on');}
+document.getElementById('mClose').onclick=()=>modal.classList.remove('on');
+modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('on');});
+document.getElementById('mDownload').onclick=()=>{const u=URL.createObjectURL(curBlob);const a=document.createElement('a');a.href=u;a.download=curName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);};
+document.getElementById('mShare').onclick=async()=>{try{await navigator.share({files:[new File([curBlob],curName,{type:curBlob.type})],title:curName});}catch(e){}};
+
+document.getElementById('save').onclick=()=>{ level.width=Math.max(VW,+document.getElementById('lw').value|0);
+  const blob=new Blob([JSON.stringify(level)],{type:'application/json'});
+  openModal('Spara bana','Dela och spara i Filer, eller Ladda ner. \u00d6ppna igen med \u00d6ppna bana.',blob,'bana.json'); };
+document.getElementById('load').onclick=()=>document.getElementById('loadFile').click();
+document.getElementById('loadFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{level=JSON.parse(r.result);document.getElementById('lw').value=level.width||4200;syncTheme();scrollX=0;syncScroll();}catch(err){alert('Kunde inte l\u00e4sa banfilen.');}};r.readAsText(f);};
+
+document.getElementById('clear').onclick=()=>{ if(confirm('Rensa hela banan?')){level={width:+document.getElementById('lw').value|0||4200,groundY:410,start:{x:80,y:300},grounds:[{x:-40,y:410,w:900,h:120}],ledges:[],coins:[],enemies:[],friends:[],shops:[],bouncers:[],boss:null};syncTheme();scrollX=0;syncScroll();} };
+
+document.getElementById('export').onclick=async()=>{ level.width=Math.max(VW,+document.getElementById('lw').value|0);
+  let src; try{ src=await getEngineSrc(); }
+  catch(e){ alert('Kunde inte l\u00e4sa engine.js. Export kr\u00e4ver att sidan k\u00f6rs fr\u00e5n en webbserver (t.ex. er Azure-sajt) \u2014 inte som \u00f6ppnad fil.'); return; }
+  const html=buildGameHTML(level,src); const blob=new Blob([html],{type:'text/html'});
+  openModal('Exportera spel','Ett f\u00e4rdigt, fristående spel. P\u00e5 iPad: <b>Dela\u2026</b> och spara i Filer, ladda sedan upp till tiiny.host. P\u00e5 dator: <b>Ladda ner</b>.',blob,'mitt_spel.html'); };
+
+function buildGameHTML(lvl,engineSrc){
+  const shell = '<!DOCTYPE html><html lang="sv"><head><meta charset="UTF-8">'
+  +'<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">'
+  +'<title>Mitt spel</title><style>*{margin:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}'
+  +'html,body{height:100%;overflow:hidden;background:#1b1030;font-family:ui-rounded,system-ui,sans-serif;touch-action:none}'
+  +'#wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}'
+  +'canvas{image-rendering:pixelated;width:100%;height:100%;object-fit:contain;background:#8fd3f0}'
+  +'#gbtns{position:fixed;inset:auto 0 0 0;display:flex;justify-content:space-between;padding:14px 18px;pointer-events:none}'
+  +'.pad{display:flex;gap:12px;pointer-events:auto}.tbtn{width:74px;height:74px;border-radius:50%;border:3px solid rgba(255,255,255,.6);background:rgba(20,12,40,.4);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center}'
+  +'.tbtn:active{background:rgba(244,214,74,.85);color:#2b2440}#gJump{width:92px;height:92px;font-size:18px}@media(hover:hover){#gbtns{opacity:.4}}</style></head>'
+  +'<body><div id="wrap"><canvas id="cv" width="880" height="480"></canvas></div>'
+  +'<div id="gbtns"><div class="pad"><div class="tbtn" id="gLeft">\u25c0</div><div class="tbtn" id="gRight">\u25b6</div></div><div class="pad"><div class="tbtn" id="gJump">HOPP</div></div></div>'
+  +'<scr'+'ipt>'+engineSrc+'\nvar ASSETS='+JSON.stringify(ASSETS)+';\nvar LEVEL='+JSON.stringify(lvl)+';\n'
+  +'window.addEventListener("load",function(){runGame(document.getElementById("cv"),LEVEL,ASSETS,{});});\n</scr'+'ipt></body></html>';
+  return shell;
+}
+
+
+// ---- Banbibliotek (localStorage) + meny-routing ----
+const LS_PREFIX='ppbana:';
+function lsOK(){ try{localStorage.setItem('__t','1');localStorage.removeItem('__t');return true;}catch(e){return false;} }
+function listLevels(){ try{return Object.keys(localStorage).filter(k=>k.indexOf(LS_PREFIX)===0).map(k=>k.slice(LS_PREFIX.length)).sort();}catch(e){return [];} }
+function loadLevelLS(n){ try{const v=localStorage.getItem(LS_PREFIX+n);return v?JSON.parse(v):null;}catch(e){return null;} }
+function saveLevelLS(n,o){ try{localStorage.setItem(LS_PREFIX+n,JSON.stringify(o));return true;}catch(e){alert('Kunde inte spara (lagringen kan vara full eller avst\u00e4ngd).');return false;} }
+function deleteLevelLS(n){ try{localStorage.removeItem(LS_PREFIX+n);}catch(e){} }
+
+// ---- Molnsynk (Azure Functions API, /api/levels) ----
+const CLOUD_BASE='/api/levels';
+const CODE_KEY='ppfamilycode';
+function getSavedCode(){ try{return localStorage.getItem(CODE_KEY)||'';}catch(e){return '';} }
+function setSavedCode(c){ try{localStorage.setItem(CODE_KEY,c);}catch(e){} }
+function clearSavedCode(){ try{localStorage.removeItem(CODE_KEY);}catch(e){} }
+function askCode(){
+  var c=getSavedCode(); if(c) return c;
+  c=prompt('Familjekod (kr\u00e4vs f\u00f6r att spara/ta bort i molnet \u2014 l\u00e4mna tomt f\u00f6r att bara spara lokalt p\u00e5 den h\u00e4r enheten):','');
+  c=(c||'').trim(); if(c) setSavedCode(c);
+  return c;
+}
+async function cloudList(){
+  const res=await fetch(CLOUD_BASE);
+  if(!res.ok) throw new Error('net');
+  return await res.json(); // [{name, updated}]
+}
+async function cloudGet(name){
+  const res=await fetch(CLOUD_BASE+'/'+encodeURIComponent(name));
+  if(res.status===404) return null;
+  if(!res.ok) throw new Error('net');
+  const data=await res.json();
+  return data.level;
+}
+async function cloudSave(name,lvl,code){
+  const res=await fetch(CLOUD_BASE,{method:'POST',headers:{'Content-Type':'application/json','x-family-code':code},body:JSON.stringify({name,level:lvl,code})});
+  if(res.status===403) throw new Error('code');
+  if(!res.ok) throw new Error('net');
+  return await res.json();
+}
+async function cloudDel(name,code){
+  const res=await fetch(CLOUD_BASE+'/'+encodeURIComponent(name),{method:'DELETE',headers:{'x-family-code':code}});
+  if(res.status===403) throw new Error('code');
+  if(!res.ok && res.status!==404) throw new Error('net');
+  return true;
+}
+async function loadLevelAny(name,preferCloud){
+  if(preferCloud){ try{ const L=await cloudGet(name); if(L) return L; }catch(e){} }
+  return loadLevelLS(name);
+}
+
+function syncTheme(){ document.getElementById('theme').value=level.theme||'green'; }
+document.getElementById('theme').onchange=e=>{ level.theme=e.target.value; };
+function applyLevel(L){ level=L; document.getElementById('lw').value=level.width||4200; syncTheme(); scrollX=0; syncScroll(); }
+
+document.getElementById('saveLS').onclick=async function(){
+  level.width=Math.max(VW,+document.getElementById('lw').value|0);
+  var name=prompt('Namn p\u00e5 banan:','Min bana'); if(!name)return; name=name.trim(); if(!name)return;
+  if(listLevels().indexOf(name)>=0 && !confirm('Det finns redan en bana som heter "'+name+'" p\u00e5 den h\u00e4r enheten. Skriva \u00f6ver?'))return;
+  if(!saveLevelLS(name,level)) return; // lokal kopia sparas alltid f\u00f6rst
+  var code=askCode();
+  if(!code){ alert('Sparad lokalt p\u00e5 den h\u00e4r enheten som "'+name+'" \u2714\n(Ingen familjekod angiven \u2014 synkas inte till andra enheter.)'); return; }
+  try{
+    await cloudSave(name,level,code);
+    alert('Sparad i molnet som "'+name+'" \u2601\ufe0f\u2714\nSynkas nu till alla enheter.');
+  }catch(e){
+    if(e.message==='code'){ clearSavedCode(); alert('Fel familjekod. Banan \u00e4r sparad lokalt, men INTE i molnet \u2014 f\u00f6rs\u00f6k spara igen med r\u00e4tt kod.'); }
+    else { alert('Sparad lokalt \u2714\nKunde inte n\u00e5 molnet just nu (offline?) \u2014 den synkas n\u00e4sta g\u00e5ng du sparar med n\u00e4t.'); }
+  }
+};
+
+var lvModal=document.getElementById('lvmodal');
+async function openLevels(){
+  var wrap=document.getElementById('lvlist');
+  wrap.innerHTML='<p style="color:#b9aede">Laddar\u2026</p>';
+  lvModal.classList.add('on');
+
+  if(!lsOK() ){ wrap.innerHTML='<p style="color:#b9aede">Webbl\u00e4saren till\u00e5ter inte lagring h\u00e4r. Anv\u00e4nd \u201cSpara bana\u201d f\u00f6r att spara som fil i st\u00e4llet.</p>'; return; }
+
+  var localNames=listLevels();
+  var cloudNames=[], cloudFailed=false;
+  try{ cloudNames=(await cloudList()).map(function(x){return x.name;}); }
+  catch(e){ cloudFailed=true; }
+
+  var all=cloudNames.slice();
+  localNames.forEach(function(n){ if(all.indexOf(n)<0) all.push(n); });
+  all.sort();
+
+  wrap.innerHTML='';
+  if(cloudFailed){
+    var note=document.createElement('p'); note.style.cssText='color:#b9aede;font-size:12.5px';
+    note.textContent='Kunde inte n\u00e5 molnet just nu \u2014 visar bara banor sparade p\u00e5 den h\u00e4r enheten.';
+    wrap.appendChild(note);
+  }
+  if(all.length===0){ wrap.innerHTML+='<p style="color:#b9aede">Inga sparade banor \u00e4n. Bygg en bana och tryck \u201cSpara i appen\u201d.</p>'; return; }
+
+  all.forEach(function(n){
+    var inCloud=cloudNames.indexOf(n)>=0;
+    var row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;align-items:center;margin:6px 0';
+    var nm=document.createElement('span'); nm.textContent=n+(inCloud?' \u2601\ufe0f':''); nm.style.cssText='flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis';
+    var play=document.createElement('button'); play.className='btn gold'; play.textContent='\u25b6 Spela';
+    play.onclick=async function(){ var L=await loadLevelAny(n,inCloud); if(L){ applyLevel(L); lvModal.classList.remove('on'); startPlay(); } };
+    var edit=document.createElement('button'); edit.className='btn'; edit.textContent='\u00c4ndra';
+    edit.onclick=async function(){ var L=await loadLevelAny(n,inCloud); if(L){ applyLevel(L); lvModal.classList.remove('on'); } };
+    var del=document.createElement('button'); del.className='btn'; del.textContent='\ud83d\uddd1';
+    del.onclick=async function(){
+      if(!confirm('Ta bort "'+n+'"?')) return;
+      deleteLevelLS(n);
+      if(inCloud){
+        var code=askCode();
+        if(code){
+          try{ await cloudDel(n,code); }
+          catch(e){ if(e.message==='code'){ clearSavedCode(); alert('Fel familjekod \u2014 borttagen lokalt, men finns kvar i molnet.'); } }
+        } else {
+          alert('Borttagen lokalt. Fanns ocks\u00e5 i molnet \u2014 ange familjekod n\u00e4sta g\u00e5ng f\u00f6r att ta bort den d\u00e4r ocks\u00e5.');
+        }
+      }
+      openLevels();
+    };
+    row.appendChild(nm); row.appendChild(play); row.appendChild(edit); row.appendChild(del); wrap.appendChild(row);
+  });
+}
+document.getElementById('mylevels').onclick=openLevels;
+document.getElementById('lvClose').onclick=function(){ lvModal.classList.remove('on'); };
+lvModal.addEventListener('click',function(e){ if(e.target===lvModal)lvModal.classList.remove('on'); });
+
+// deep-link fr\u00e5n menyn: #play=NAMN / #edit=NAMN / #levels (f\u00f6rs\u00f6ker molnet f\u00f6rst, faller tillbaka p\u00e5 lokalt)
+(function(){ var h=''; try{h=decodeURIComponent(location.hash||'');}catch(e){h=location.hash||'';}
+  var mp=h.match(/^#play=(.+)$/), me=h.match(/^#edit=(.+)$/);
+  if(mp){ loadLevelAny(mp[1],true).then(function(L){ if(L){ applyLevel(L); setTimeout(startPlay,80); } }); }
+  else if(me){ loadLevelAny(me[1],true).then(function(L2){ if(L2){ applyLevel(L2); } }); }
+  else if(h==='#levels'){ setTimeout(openLevels,80); }
+})();
+</script></body></html>

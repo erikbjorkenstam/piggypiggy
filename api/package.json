@@ -1,0 +1,9 @@
+{
+  "name": "piggypiggy-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Litet API för att spara/hämta PiggyPiggy Adventure-banor i Azure Table Storage.",
+  "dependencies": {
+    "@azure/data-tables": "^13.2.2"
+  }
+}

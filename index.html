@@ -1,0 +1,89 @@
+<!DOCTYPE html><html lang="sv"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>PiggyPiggy Adventure</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{margin:0;min-height:100%;background:radial-gradient(120% 90% at 50% 0%,#3a2160 0%,#241436 55%,#1b1030 100%);
+  color:#f4f0ff;font-family:ui-rounded,"SF Pro Rounded",system-ui,Segoe UI,sans-serif;overscroll-behavior:none}
+body{display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:32px 20px 48px}
+h1{font-size:clamp(30px,7vw,52px);margin:18px 0 2px;color:#f4d64a;text-shadow:0 3px 0 #7a5a12,0 0 24px rgba(244,214,74,.35);text-align:center}
+.sub{color:#cdbcf2;font-size:clamp(14px,3.5vw,19px);margin:0 0 26px;text-align:center}
+.menu{width:100%;max-width:440px;display:flex;flex-direction:column;gap:14px}
+.big{display:flex;align-items:center;gap:14px;text-decoration:none;color:#2b2440;background:#f4d64a;
+  border:none;border-radius:18px;padding:20px 22px;font-size:22px;font-weight:800;box-shadow:0 6px 0 #b9992a;transition:transform .05s}
+.big:active{transform:translateY(3px);box-shadow:0 3px 0 #b9992a}
+.big.alt{background:#5b3b8c;color:#fff;box-shadow:0 6px 0 #3a2560}
+.big.alt:active{box-shadow:0 3px 0 #3a2560}
+.big .ic{font-size:30px;line-height:1}
+.big small{display:block;font-size:13px;font-weight:600;opacity:.8;margin-top:2px}
+.section{width:100%;max-width:440px;margin-top:30px}
+.section h2{font-size:18px;color:#f4d64a;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.lv{display:flex;align-items:center;gap:10px;background:#2f2748;border:1px solid #4b3f6b;border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.lv .nm{flex:1;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lv a{text-decoration:none;background:#f4d64a;color:#2b2440;font-weight:800;border-radius:10px;padding:9px 14px;font-size:15px}
+.lv a:active{background:#e0c33f}
+.empty{color:#b9aede;font-size:14px;line-height:1.5;background:#2a2340;border:1px dashed #4b3f6b;border-radius:14px;padding:14px}
+.foot{color:#7d6ea8;font-size:12px;margin-top:34px;text-align:center;line-height:1.6}
+</style></head><body>
+<h1>PiggyPiggy Adventure</h1>
+<p class="sub">Rädda LiggyLiggy &amp; ZiggyZiggy — besegra bossen IsIs!</p>
+
+<div class="menu">
+  <a class="big" href="varldskartan.html"><span class="ic">🗺️</span><span>Världskartan<small>Kampanjen: 3 världar, 6 banor, samla stjärnor!</small></span></a>
+  <a class="big" href="piggypiggy_spel.html"><span class="ic">▶</span><span>Spela äventyret<small>Ökenbanan med bossfight</small></span></a>
+  <a class="big alt" href="banbyggaren.html"><span class="ic">🔨</span><span>Banbyggaren<small>Bygg egna banor och testa dem</small></span></a>
+</div>
+
+<div class="section">
+  <h2>★ Mina banor</h2>
+  <div id="levels"></div>
+</div>
+
+<p class="foot">Byggd med egna, handritade figurer.<br>Tips: bygg en bana i Banbyggaren och tryck “Spara i appen”.</p>
+
+<script>
+(function(){
+  var PREFIX='ppbana:', box=document.getElementById('levels');
+  function localNames(){ try{ return Object.keys(localStorage).filter(function(k){return k.indexOf(PREFIX)===0;}).map(function(k){return k.slice(PREFIX.length);}); }catch(e){ return null; } }
+
+  function render(names, offline){
+    if(names===null){
+      box.innerHTML='<div class="empty">Webbläsaren tillåter inte lagring här, så sparade banor kan inte visas. Öppna Banbyggaren och spara banor som fil i stället.</div>';
+      return;
+    }
+    box.innerHTML='';
+    if(offline){
+      var note=document.createElement('div'); note.className='empty';
+      note.style.cssText='margin-bottom:10px;font-size:12.5px;padding:10px';
+      note.textContent='Kunde inte nå molnet just nu — visar bara banor sparade på den här enheten.';
+      box.appendChild(note);
+    }
+    if(names.length===0){
+      box.innerHTML+='<div class="empty">Inga sparade banor än. Öppna <b>Banbyggaren</b>, bygg något och tryck <b>“Spara i appen”</b> — då dyker de upp här.</div>';
+      return;
+    }
+    names.forEach(function(n){
+      var row=document.createElement('div'); row.className='lv';
+      var nm=document.createElement('span'); nm.className='nm'; nm.textContent=n;
+      var play=document.createElement('a'); play.textContent='▶ Spela'; play.href='banbyggaren.html#play='+encodeURIComponent(n);
+      var edit=document.createElement('a'); edit.textContent='Ändra'; edit.style.background='#5b3b8c'; edit.style.color='#fff'; edit.href='banbyggaren.html#edit='+encodeURIComponent(n);
+      row.appendChild(nm); row.appendChild(play); row.appendChild(edit); box.appendChild(row);
+    });
+  }
+
+  var local = localNames();
+  // Molnet först ("källan för sanning" mellan enheter), localStorage som fallback om nätet/API:t inte svarar.
+  fetch('/api/levels').then(function(res){
+    if(!res.ok) throw new Error('net');
+    return res.json();
+  }).then(function(list){
+    var names = list.map(function(x){return x.name;});
+    (local||[]).forEach(function(n){ if(names.indexOf(n)<0) names.push(n); });
+    render(names.sort(), false);
+  }).catch(function(){
+    render(local===null?null:local.sort(), true);
+  });
+})();
+</script>
+</body></html>

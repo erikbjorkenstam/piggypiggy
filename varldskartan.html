@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="sv"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>PiggyPiggy — Världskartan</title>
+<style>
+ *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+ html,body{margin:0;min-height:100%;background:linear-gradient(#1a1230,#241436 60%,#2b1a3e);color:#fff;
+   font-family:ui-rounded,"SF Pro Rounded",system-ui,Segoe UI,sans-serif}
+ /* ---- kartan (gångbar canvas-övervärld) ---- */
+ #map{position:fixed;inset:0;background:#241436}
+ #map.off{display:none}
+ #gwrap2{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+ #map canvas{image-rendering:auto;width:100%;height:100%;object-fit:contain}
+ a.home{position:fixed;top:10px;left:12px;z-index:30;width:42px;height:42px;border-radius:50%;
+   background:rgba(20,12,40,.5);border:2px solid rgba(255,255,255,.55);color:#fff;font-size:20px;
+   display:flex;align-items:center;justify-content:center;text-decoration:none}
+ /* ---- spelet ---- */
+ #game{position:fixed;inset:0;display:none;background:#241436}
+ #game.on{display:block}
+ #gwrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+ canvas{image-rendering:pixelated;width:100%;height:100%;object-fit:contain}
+ #touch{position:fixed;inset:auto 0 0 0;display:flex;justify-content:space-between;padding:16px 20px;pointer-events:none;gap:12px}
+ .pad{display:flex;gap:12px;pointer-events:auto}
+ .tbtn{width:74px;height:74px;border-radius:50%;border:3px solid rgba(255,255,255,.6);
+   background:rgba(20,12,40,.4);color:#fff;font-size:26px;font-weight:700;display:flex;align-items:center;justify-content:center;touch-action:none}
+ .tbtn:active{background:rgba(244,214,74,.85);color:#2b2440}
+ #gJump{width:92px;height:92px;font-size:19px}
+ @media (hover:hover){#touch{opacity:.35}}
+ #toMap{position:fixed;top:10px;right:12px;z-index:30;width:42px;height:42px;border-radius:50%;
+   background:rgba(20,12,40,.5);border:2px solid rgba(255,255,255,.55);color:#fff;font-size:20px;cursor:pointer}
+ /* ---- resultatbanner ---- */
+ #banner{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;background:rgba(15,9,30,.72)}
+ #banner.on{display:flex}
+ .bcard{background:#342a4f;border:3px solid #f4d64a;border-radius:22px;padding:26px 30px;text-align:center;max-width:340px;width:88%}
+ .bcard h2{margin:0 0 6px;color:#f4d64a}
+ .bstars{font-size:40px;letter-spacing:6px;margin:10px 0}
+ .bstars span{opacity:.25} .bstars span.won{opacity:1;animation:pop .5s}
+ @keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.35)}100%{transform:scale(1)}}
+ .crit{font-size:14px;text-align:left;margin:0 auto 14px;display:inline-block;line-height:1.7}
+ .bbtn{display:inline-block;border:0;border-radius:14px;padding:12px 18px;margin:4px;font-family:inherit;
+   font-size:16px;font-weight:700;cursor:pointer;background:#f4d64a;color:#2b2440}
+ .bbtn.alt{background:#5b3b8c;color:#fff}
+</style></head><body>
+
+<div id="map">
+ <div id="gwrap2"><canvas id="mcv" width="880" height="480"></canvas></div>
+ <a class="home" href="index.html" aria-label="Till startmenyn">⌂</a>
+</div>
+
+<div id="game">
+ <div id="gwrap"><canvas id="cv" width="880" height="480"></canvas></div>
+ <button id="toMap" aria-label="Till kartan">🗺️</button>
+</div>
+
+<div id="touch">
+ <div class="pad"><div class="tbtn" id="gLeft">◀</div><div class="tbtn" id="gRight">▶</div></div>
+ <div class="pad"><div class="tbtn" id="gJump">HOPP</div></div>
+</div>
+
+<div id="banner"><div class="bcard">
+ <h2 id="bTitle">Bana klarad!</h2>
+ <div class="bstars"><span id="s1">⭐</span><span id="s2">⭐</span><span id="s3">⭐</span></div>
+ <div class="crit" id="bCrit"></div><br>
+ <button class="bbtn alt" id="bAgain">↻ Spela igen</button>
+ <button class="bbtn" id="bMap">🗺️ Till kartan</button>
+</div></div>
+
+<script src="engine.js"></script>
+<script>
+const ASSETS={"piggy": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABsAAAAdCAYAAABbjRdIAAABLElEQVR42mP4//8/A7lYW9PkPyl8iiz6fM3rP8xAQnyyLYMZ9DKqAm7g52te/8unvUDhV5zoRrGQiYECwFVzCYVf45CEwq/m24/Cp8gyGDixVgwvn6BlOlqm/3W0TP8zUBEwMdARMP7//x/DR9S25Mq104wMDAwMLNgkd+Q2MTAwMDC8evacQUxKEi5OLN9jch3cAqKCkVyL8AEWWlmELTpYsAlSYtGrZ89RogIGPCbXQXyGLOExuY5mQclCqzhDdjSKZegS1PARttTIgi6oo2X6nxpxRnIJQu04o2s+Y6KXRTgto1Wc0awgJqlspAXAW+rD8iC2ogefGmwZenD4DB3gcimpagha9vHTGwwxfj4RgmrISo3kWvb4yX1Ggj4jRqOsjOJ/Ygwf0AQCAHi8yiw2Z854AAAAAElFTkSuQmCC", "piggyA": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABsAAAAdCAYAAABbjRdIAAABLElEQVR42mP4//8/A7lYW9PkPyl8iiz6fM3rP8xAQnyyLYMZ9DKqAm7g52te/8unvUDhV5zoRrGQiYECwFVzCYVf45CEwq/m24/Cp8gyGDixVgwvn6BlOlqm/3W0TP8zUBEwMdARMP7//x/DR9S25Mq104wMDAwMLNgkd+Q2MTAwMDC8evacQUxKEi5OLN9jch3cAqKCkVyL8AEWWlmELTpYsAlSYtGrZ89RogIGPCbXQXyGLOExuY5mQclCqzhDdjSKZegS1PARttTIgi6oo2X6nxpxRnIJQu04o2s+Y6KXRTgto1Wc0awgJqlspAXAW+rD8iC2ogefGmwZenD4DB3gcimpagha9vHTGwwxfj4RgmrISo3kWvb4yX1Ggj4jRqOsjOJ/Ygwf0AQCAHi8yiw2Z854AAAAAElFTkSuQmCC", "piggyB": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABsAAAAdCAYAAABbjRdIAAABMElEQVR42mP4//8/A7lYW9PkPyl8iiz6fM3rP8xAQnyyLYMZ9DKqAm7g52te/8unvUDhV5zoRrGQiYECwFVzCYVf45CEwq/m24/Cp8gyGDixVgwvn6BlOlqm/3W0TP8zUBEwMdARMP7//x/DR9S25Mq104wMDAwMLNgkd+Q2MTAwMDC8evacQUxKEi5OLN9jch1WD7Dgcg25FqE7GAY8JtdhjzNKLcIFsPqMEotePXsO9wlRllHDh7BEgWIZrtRHi6BkQY9Mj8l1NIszJlrFGU6fYYtMWgQlC3pEwuKQFkFJ13xG1zijWUGMLZ/RtYrBW+rDUiq2QhWfGlype+B9hstlpKohaNnHT29Q+Px8IgzkqCEqNcrKKP6nhmVYS310gcdP7jPisxybOlxqBjSBAACbW8NzkgCHJgAAAABJRU5ErkJggg==", "liggy": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAhCAYAAAAyCTAQAAABN0lEQVR42s2VTW7DIBSEB4SaKjfoDepm2exygl4j5+kZWHVR9SxWF5UsL3qA3CByuuh09SKMDY75kfokhEDw8RgGAEnEytPjM93a74+VRfDn1zfdWvpfmwOXFtAIxK7Z8+3jHQAg9drQayfsmj2P6h6ny3lxrCI5CwhNEPDDZgvLAV3fqpvhkpmEgEJtywEAZhfRqWDLAZYD3PF+mFRw17cyL36ga6UIHbR/VmYt+HQ547jZXjN++fkd7WhWllvB0nZdE3KaSQHHduS6yJQCi+8nspQC+15P0nyU4Z0GAjfVlMgw6vMa4Cu8BnjytpQEj+ApV76I5lnwJc2z4LWk0fIOVNFcXFBDc+P/he6VLnKg8j7H6iy474ocl0zgvsbFfO6G/+DbDO01KoYiOfpUu75VfvtfZv4HPB+jqHnQCHAAAAAASUVORK5CYII=", "liggyB": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAhCAYAAAAyCTAQAAABO0lEQVR42rWWzY3CMBCFXyxrWdEBHZDluNyoYNugHmrIiQPaWqI9IEU5UAAdoMBhh9MgZxI72BmPFFm24s/j5+cfEBFC39f6m9xStoe+SfDf+UJuye2HckdTAxh4YlNu6fh7AgBwGRsmtsOm3NK++MT1fpv8tyCiUYCvA4NXiyUq6tC0dfE2nDPjYJCvXlEHAKODmFRwRR0q6uD+L8Omgpu25n7hBY2VwrfQcq1sLPh6v2G/WL4y/nn892Y0Ksu7YK67rvE5zaaAQzNyXWS1wOz7gSxaYOn1JM17GX4YwLNTrUaGQZ/nAL/gOcCDs0UT3IOnbHkVzWfBpzSfBc8ljeFzIIvm7IIcmlt5F7pbWmVB+XwOlbPg0hVzXDKAS43VfO5qzhnLuspzTnMGvReXe7k2bV3IevaHaEw8ASNjqajGVQYbAAAAAElFTkSuQmCC", "ziggy": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAfCAYAAADnTu3OAAABSUlEQVR42q1VQarCMBCdlhzARcETfLR2acEj/L1bD/DBXXMAFz2A7gQP4NZ9jyC4FSk9gdBFD/BhXFU0TiYz6kCgSZPHzHuTF0BEkIzJeIrUtzsMCCJLc6xsCVmaY2hvDIqobAmVLdk9ESKKMnTXzpdTRG5WcoiIiByHqpIlESyZE4Iq24TAkt0WurqBwejnvt7VDfyvN+QZowFr/5ZBUVgOXbDjYQgf9eFjmcYWMJtfg6AxVy6V6Wx+ZcV6UZkDo2hwuRRzSM1VHIbAurqRA0rAfJmSN6UnPNTUVC/G3JXiMlM1dpbmaGzhBUt2W2/bGN8PiSDUWdM78WKUkBffV3brcLyvW/hdryCajKdkhj5BKKN4ypAiN0tzlLSKWGUphyrHDj2Zb/mhscX9cA/waBwf+aE0vv7qqQE5QUR+qKWBBaSeSl9D93ED5tZQ43vxUjUAAAAASUVORK5CYII=", "bossUp": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABPUlEQVR42tWUPWrDQBCF3wodIaA+RXAccOOATqBeqEjpk6TYQjcIBEI6lyp8AZ/AoCogBCrc6xSbajajjXZHP7jwgECrWX1vZmdnlDEGkr08vxoAaNpaYabFU+CZruz7XJFoKry/dsh0ZbNZLeDCk8cnAJgtEs2B05rXRTK13eztxqatFf2Y6WoUTuuzfoOv8Fw8Ihh3TIWPgYmxO5R/AlTA0LFweNPWePj6HI060xV2h9LuHxwRRf5zfEcoE/L7jpX7FTUa30SR8kjoG/ndo3LhVBvFO9m9GRzWXzt85x9Ii/5fZm5NeOFjn4OL2cjyBJdTgrQYZhIaI+Ko4JGmRT+a2eJZ5Hawr+Ch+eTtZLfAS+DBWSTB+XrxNF0LFwXWwoMCEly6PeIt4u2+yowx4rPd7E1oHXoi3NjuX+AXi4o7Efyrcd0AAAAASUVORK5CYII=", "bossDown": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABRElEQVR42tWVPWrDQBCF3y46QkC9C+MfcGODT6A+uHDpk6TYwjcIBEK6lCpyAZ/AoCogBC7c6xSTapbxWNLuWkmRgQUN7H4zb98sMkSEUCznGwKAuqkMEiOLgReu9N+pRWwsvL1eULjSqxldQMPzyRQAkovYFDjn0pfkAvJgFzyfTCE9eUhB4cpeOACc3H6cByF43VR4en+LKmD63gH70FXs+/PF56GxHRxTDT+5vfdA+jDkxY0CvZEhXOzj+RXbXXvnkfZEqrIaXrgSq8PxTglfy/kr90p0M13TZaVE7kzesex0u2u9Av0uWAU3x1yzmK1vHpWErw7H3mmS++umMrJJ6VkmExkpcL735XxDWomV8LqpDB8IwbUH+jzfRBaa41h4cIp+Cx790EJwnp6H/2hymkYFEQXXYramoXxoWfxx/P8CP4nAP9JEnxIkAAAAAElFTkSuQmCC"};
+const AVENTYR_LEVEL={
+  theme:'desert',
+  width:5200, groundY:410,
+  start:{x:70,y:300},
+  grounds:[
+    {x:-40,y:410,w:1280,h:120},
+    {x:1360,y:410,w:1060,h:120},
+    {x:2540,y:410,w:2700,h:120}
+  ],
+  ledges:[
+    {x:360,y:320,w:150,h:18},{x:640,y:285,w:130,h:18},{x:900,y:320,w:150,h:18},
+    {x:1500,y:300,w:170,h:18},{x:1820,y:285,w:140,h:18},{x:2120,y:320,w:150,h:18},
+    {x:2780,y:300,w:180,h:18},{x:3120,y:285,w:140,h:18},{x:3420,y:330,w:150,h:18,crumble:true},{x:3760,y:280,w:150,h:18}
+  ],
+  coins:[
+    {x:380,y:285},{x:430,y:285},{x:665,y:255},{x:720,y:255},{x:930,y:285},{x:980,y:285},{x:1180,y:360},{x:1250,y:360},
+    {x:1540,y:265},{x:1600,y:265},{x:1860,y:255},{x:2160,y:285},{x:2320,y:360},{x:2820,y:265},{x:2880,y:265},{x:3160,y:255},
+    {x:3460,y:295},{x:3800,y:245},{x:4200,y:360},{x:4350,y:360},{x:4500,y:360}
+  ],
+  enemies:[
+    {x:720,lo:560,hi:900},{x:1650,lo:1500,hi:1900},{x:2200,lo:2050,hi:2360},
+    {x:2900,lo:2700,hi:3050},{x:3500,lo:3350,hi:3700},{x:4300,lo:4150,hi:4600}
+  ],
+  friends:[
+    {key:'liggy',x:1560,y:300},
+    {key:'ziggy',x:2860,y:300}
+  ],
+  shops:[ {x:250}, {x:2620}, {x:4080} ],
+  bouncers:[ {x:1180} ],
+  movers:[ {x:2430,y:340,w:100,h:18,dy:-150} ],
+  boss:{x:4820,y:150}
+};
+const LEVELS=[{"id": "studsangen", "world": 0, "emoji": "🟡", "move": 3.6, "data": {"name": "Studsängen", "theme": "green", "width": 3600, "groundY": 410, "start": {"x": 80, "y": 300}, "grounds": [{"x": -40, "y": 410, "w": 1200, "h": 120}, {"x": 1260, "y": 410, "w": 1000, "h": 120}, {"x": 2360, "y": 410, "w": 1280, "h": 120}], "ledges": [{"x": 300, "y": 320, "w": 140, "h": 18}, {"x": 640, "y": 230, "w": 140, "h": 18}, {"x": 1560, "y": 300, "w": 140, "h": 18}, {"x": 1860, "y": 210, "w": 150, "h": 18}, {"x": 2560, "y": 300, "w": 160, "h": 18, "crumble": true}], "bouncers": [{"x": 520}, {"x": 1700}, {"x": 2950}], "coins": [{"x": 350, "y": 285}, {"x": 500, "y": 260}, {"x": 520, "y": 225}, {"x": 540, "y": 260}, {"x": 700, "y": 195}, {"x": 900, "y": 380}, {"x": 950, "y": 380}, {"x": 1000, "y": 380}, {"x": 1215, "y": 340}, {"x": 1600, "y": 265}, {"x": 1930, "y": 175}, {"x": 2330, "y": 340}, {"x": 2600, "y": 265}, {"x": 2660, "y": 265}, {"x": 2930, "y": 240}, {"x": 2950, "y": 205}, {"x": 2970, "y": 240}, {"x": 3300, "y": 380}, {"x": 3360, "y": 380}, {"x": 3420, "y": 380}], "enemies": [{"x": 900, "lo": 800, "hi": 1050}, {"x": 1950, "lo": 1850, "hi": 2150}, {"x": 3150, "lo": 3050, "hi": 3350}], "friends": [{"key": "ziggy", "x": 1920, "y": 210}], "shops": [{"x": 180}]}, "name": "Studsängen"}, {"id": "hoga_tornet", "world": 0, "emoji": "🏰", "move": 3.6, "data": {"name": "Höga tornet", "theme": "green", "width": 4600, "groundY": 410, "start": {"x": 80, "y": 300}, "grounds": [{"x": -40, "y": 410, "w": 1300, "h": 120}, {"x": 1360, "y": 410, "w": 1020, "h": 120}, {"x": 2480, "y": 410, "w": 2120, "h": 120}], "ledges": [{"x": 350, "y": 320, "w": 130, "h": 18}, {"x": 560, "y": 250, "w": 120, "h": 18}, {"x": 760, "y": 180, "w": 120, "h": 18, "crumble": true}, {"x": 960, "y": 250, "w": 120, "h": 18}, {"x": 1550, "y": 300, "w": 150, "h": 18}, {"x": 1820, "y": 230, "w": 140, "h": 18, "crumble": true}, {"x": 2150, "y": 300, "w": 140, "h": 18}, {"x": 3400, "y": 320, "w": 110, "h": 18, "crumble": true}, {"x": 3580, "y": 260, "w": 110, "h": 18, "crumble": true}, {"x": 3760, "y": 320, "w": 110, "h": 18, "crumble": true}], "bouncers": [{"x": 1020}, {"x": 2700}], "coins": [{"x": 400, "y": 285}, {"x": 610, "y": 215}, {"x": 820, "y": 145}, {"x": 1010, "y": 215}, {"x": 1000, "y": 230}, {"x": 1020, "y": 195}, {"x": 1040, "y": 230}, {"x": 1600, "y": 265}, {"x": 1780, "y": 380}, {"x": 2200, "y": 265}, {"x": 2680, "y": 230}, {"x": 2700, "y": 195}, {"x": 2720, "y": 230}, {"x": 3000, "y": 380}, {"x": 3060, "y": 380}, {"x": 3450, "y": 285}, {"x": 3630, "y": 225}, {"x": 3810, "y": 285}, {"x": 4100, "y": 380}, {"x": 4160, "y": 380}], "enemies": [{"x": 650, "lo": 520, "hi": 800}, {"x": 1700, "lo": 1600, "hi": 1950}, {"x": 2250, "lo": 2150, "hi": 2350}, {"x": 3050, "lo": 2950, "hi": 3250}, {"x": 3150, "lo": 3060, "hi": 3340}, {"x": 3950, "lo": 3860, "hi": 4060}], "friends": [{"key": "ziggy", "x": 1900, "y": 230}, {"key": "liggy", "x": 3150, "y": 410}], "shops": [{"x": 300}, {"x": 2600}, {"x": 3880}], "boss": {"x": 4220, "y": 150}}, "name": "Höga tornet"}, {"id": "okenloppet", "world": 1, "emoji": "🏃", "move": 3.6, "data": {"name": "Ökenloppet", "theme": "desert", "width": 5200, "groundY": 410, "start": {"x": 80, "y": 300}, "grounds": [{"x": -40, "y": 410, "w": 1500, "h": 120}, {"x": 1560, "y": 410, "w": 1220, "h": 120}, {"x": 2880, "y": 410, "w": 1120, "h": 120}, {"x": 4100, "y": 410, "w": 1100, "h": 120}], "ledges": [{"x": 1100, "y": 300, "w": 160, "h": 18}, {"x": 2400, "y": 300, "w": 160, "h": 18, "crumble": true}, {"x": 3600, "y": 280, "w": 160, "h": 18}], "bouncers": [{"x": 700}, {"x": 2100}, {"x": 3300}, {"x": 4500}], "coins": [{"x": 300, "y": 380}, {"x": 450, "y": 380}, {"x": 600, "y": 380}, {"x": 680, "y": 230}, {"x": 700, "y": 195}, {"x": 720, "y": 230}, {"x": 1160, "y": 265}, {"x": 1220, "y": 265}, {"x": 1520, "y": 340}, {"x": 2080, "y": 230}, {"x": 2100, "y": 195}, {"x": 2120, "y": 230}, {"x": 2450, "y": 265}, {"x": 2840, "y": 340}, {"x": 3280, "y": 230}, {"x": 3300, "y": 195}, {"x": 3320, "y": 230}, {"x": 3660, "y": 245}, {"x": 4060, "y": 340}, {"x": 4480, "y": 230}, {"x": 4500, "y": 195}, {"x": 4520, "y": 230}, {"x": 4900, "y": 380}, {"x": 4960, "y": 380}, {"x": 5020, "y": 380}], "enemies": [{"x": 1000, "lo": 850, "hi": 1300}, {"x": 1900, "lo": 1650, "hi": 2250}, {"x": 3100, "lo": 2950, "hi": 3500}, {"x": 4300, "lo": 4180, "hi": 4700}], "friends": [{"key": "liggy", "x": 2460, "y": 300}], "shops": [{"x": 200}]}, "name": "Ökenloppet"}, {"id": "aventyret", "world": 1, "emoji": "👑", "move": 4.0, "data": AVENTYR_LEVEL, "name": "Ökenäventyret"}, {"id": "isberget", "world": 2, "emoji": "🧊", "move": 3.6, "data": {"name": "Isberget", "theme": "ice", "width": 4400, "groundY": 410, "start": {"x": 80, "y": 300}, "grounds": [{"x": -40, "y": 410, "w": 1140, "h": 120}, {"x": 1500, "y": 410, "w": 1100, "h": 120}, {"x": 2700, "y": 410, "w": 1700, "h": 120}], "ledges": [{"x": 400, "y": 310, "w": 150, "h": 18}, {"x": 720, "y": 250, "w": 140, "h": 18}, {"x": 1140, "y": 340, "w": 120, "h": 18, "crumble": true}, {"x": 1330, "y": 340, "w": 120, "h": 18, "crumble": true}, {"x": 1700, "y": 300, "w": 150, "h": 18}, {"x": 1960, "y": 240, "w": 140, "h": 18}, {"x": 2350, "y": 300, "w": 140, "h": 18, "crumble": true}, {"x": 3050, "y": 300, "w": 160, "h": 18}, {"x": 3330, "y": 240, "w": 140, "h": 18, "crumble": true}], "bouncers": [{"x": 860}], "coins": [{"x": 440, "y": 275}, {"x": 490, "y": 275}, {"x": 770, "y": 215}, {"x": 840, "y": 170}, {"x": 860, "y": 135}, {"x": 880, "y": 170}, {"x": 1180, "y": 305}, {"x": 1370, "y": 305}, {"x": 1600, "y": 380}, {"x": 1750, "y": 265}, {"x": 2020, "y": 205}, {"x": 2400, "y": 265}, {"x": 2900, "y": 380}, {"x": 2950, "y": 380}, {"x": 3100, "y": 265}, {"x": 3390, "y": 205}, {"x": 3700, "y": 380}, {"x": 3760, "y": 380}], "enemies": [{"x": 600, "lo": 480, "hi": 750}, {"x": 1850, "lo": 1700, "hi": 2000}, {"x": 2900, "lo": 2820, "hi": 3000}, {"x": 3250, "lo": 3120, "hi": 3450}, {"x": 3750, "lo": 3650, "hi": 3900}], "friends": [{"key": "liggy", "x": 1780, "y": 300}, {"key": "ziggy", "x": 2400, "y": 300}], "shops": [{"x": 250}, {"x": 2850}], "boss": {"x": 4020, "y": 150}}, "name": "Isberget"}, {"id": "isis_palats", "world": 2, "emoji": "❄️", "move": 3.6, "data": {"name": "IsIs palats", "theme": "ice", "width": 5000, "groundY": 410, "start": {"x": 80, "y": 300}, "grounds": [{"x": -40, "y": 410, "w": 1240, "h": 120}, {"x": 1300, "y": 410, "w": 1200, "h": 120}, {"x": 2600, "y": 410, "w": 2400, "h": 120}], "ledges": [{"x": 350, "y": 320, "w": 140, "h": 18}, {"x": 610, "y": 250, "w": 130, "h": 18}, {"x": 1500, "y": 300, "w": 150, "h": 18}, {"x": 1770, "y": 240, "w": 140, "h": 18, "crumble": true}, {"x": 2100, "y": 300, "w": 140, "h": 18}, {"x": 2800, "y": 310, "w": 150, "h": 18}, {"x": 3070, "y": 250, "w": 140, "h": 18, "crumble": true}, {"x": 3500, "y": 310, "w": 140, "h": 18, "crumble": true}], "movers": [{"x": 950, "y": 340, "w": 110, "h": 18, "dy": -150}, {"x": 3800, "y": 330, "w": 110, "h": 18, "dy": -140}], "bouncers": [{"x": 450}, {"x": 2900}], "coins": [{"x": 400, "y": 285}, {"x": 660, "y": 215}, {"x": 430, "y": 230}, {"x": 450, "y": 195}, {"x": 470, "y": 230}, {"x": 1000, "y": 160}, {"x": 1005, "y": 300}, {"x": 1240, "y": 340}, {"x": 1560, "y": 265}, {"x": 1830, "y": 205}, {"x": 2160, "y": 265}, {"x": 2540, "y": 340}, {"x": 2860, "y": 275}, {"x": 2880, "y": 230}, {"x": 2900, "y": 195}, {"x": 2920, "y": 230}, {"x": 3130, "y": 215}, {"x": 3560, "y": 275}, {"x": 3850, "y": 150}, {"x": 3855, "y": 290}, {"x": 4200, "y": 380}, {"x": 4260, "y": 380}, {"x": 4320, "y": 380}], "enemies": [{"x": 600, "lo": 480, "hi": 760}, {"x": 1600, "lo": 1450, "hi": 1750}, {"x": 2200, "lo": 2080, "hi": 2320}, {"x": 3000, "lo": 2900, "hi": 3300}, {"x": 3650, "lo": 3560, "hi": 3760}], "friends": [{"key": "liggy", "x": 1820, "y": 240}, {"key": "ziggy", "x": 4150, "y": 410}], "shops": [{"x": 250}, {"x": 2700}], "boss": {"x": 4620, "y": 150}}, "name": "IsIs palats"}];
+const WORLDS=[
+ {cls:'w0',name:'🌱 Gräsängarna',desc:'Här börjar resan. Lär dig studsa och akta dig för rasande avsatser!'},
+ {cls:'w1',name:'🏜️ Öknen',desc:'Hett, snabbt och fullt av lavakuber. IsIs väntar i slutet…'},
+ {cls:'w2',name:'❄️ Isbergen',desc:'Den frusna världen. Besegra IsIs i hennes eget palats!'}
+];
+const SAVE_MAP='ppmap:v1', SAVE_GAME='ppsave:kampanj';
+
+function progress(){ try{return JSON.parse(localStorage.getItem(SAVE_MAP)||'{}');}catch(e){return {};} }
+function setStars(id,n){ const p=progress(); p[id]=Math.max(p[id]||0,n);
+  try{localStorage.setItem(SAVE_MAP,JSON.stringify(p));}catch(e){} }
+function unlocked(i){ if(i===0)return true; return (progress()[LEVELS[i-1].id]||0)>0; }
+function walletNow(){ try{return (JSON.parse(localStorage.getItem(SAVE_GAME)||'{}').wallet|0);}catch(e){return 0;} }
+
+// ---------- Världskartan i topdown-vy (Super Mario World-stil) ----------
+let handle=null, curIdx=0, mapOn=false;
+
+const MCV=document.getElementById('mcv'), MX=MCV.getContext('2d');
+MX.imageSmoothingEnabled=false;
+const MVW=880, MVH=480; let MSCALE=1;
+function fitMap(){ const r=MCV.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+  const s=Math.max(1,Math.min(3,(r.width*dpr)/MVW||1));
+  if(Math.abs(s-MSCALE)>0.01||MCV.width!==Math.round(MVW*s)){
+    MSCALE=s; MCV.width=Math.round(MVW*s); MCV.height=Math.round(MVH*s);
+    MX.imageSmoothingEnabled=false; } }
+const MIMG={}; Object.keys(ASSETS).forEach(k=>{const im=new Image();im.src=ASSETS[k];MIMG[k]=im;});
+
+// ---- ö-världen (världskoordinater, kameran följer i både x och y) ----
+const WORLDW=1600, WORLDH=960;
+// stigen slingrar i 2D över ön; noderna sitter på utpekade punkter
+const PATH=[{x:170,y:640},{x:270,y:590},{x:330,y:520},{x:400,y:460},{x:520,y:500},{x:615,y:565},
+            {x:700,y:610},{x:800,y:555},{x:900,y:470},{x:1010,y:500},{x:1090,y:550},
+            {x:1160,y:570},{x:1255,y:495},{x:1350,y:420}];
+const NODE_PI=[1,3,6,8,11,13];
+const PLEN=[0]; for(let i=1;i<PATH.length;i++)PLEN.push(PLEN[i-1]+Math.hypot(PATH[i].x-PATH[i-1].x,PATH[i].y-PATH[i-1].y));
+function posAt(d){ d=Math.max(0,Math.min(PLEN[PLEN.length-1],d));
+  let i=1; while(i<PLEN.length-1&&PLEN[i]<d)i++;
+  const t=(d-PLEN[i-1])/((PLEN[i]-PLEN[i-1])||1);
+  return {x:PATH[i-1].x+(PATH[i].x-PATH[i-1].x)*t,y:PATH[i-1].y+(PATH[i].y-PATH[i-1].y)*t,
+          dx:PATH[i].x-PATH[i-1].x}; }
+const NODE_D=NODE_PI.map(pi=>PLEN[pi]);
+
+// öns landmassor: cirkelkluster per zon (sand = näs/strandbankar mellan zonerna)
+const ISLES=[
+ {r:'green', c:[[300,560,190],[430,495,150],[280,665,125]]},
+ {r:'sand',  c:[[560,545,85]]},
+ {r:'desert',c:[[700,600,170],[850,535,185],[960,470,150]]},
+ {r:'sand',  c:[[1045,540,80]]},
+ {r:'ice',   c:[[1180,545,150],[1300,450,185],[1405,520,130]]}
+];
+const FILLC={green:'#79c46a',desert:'#ecd39a',ice:'#f0f7fc',sand:'#e6d3a3'};
+
+// dekor (världskoordinater, ritas djupsorterade på y tillsammans med hjälten)
+const DECOR=[
+ {t:'tree',x:215,y:480},{t:'tree',x:495,y:600},{t:'tree',x:330,y:700},{t:'tree',x:175,y:585},
+ {t:'bush',x:450,y:535},{t:'bush',x:295,y:628},{t:'bush',x:380,y:405},
+ {t:'pyr',x:860,y:665,s:0.9},{t:'pyr',x:770,y:452,s:0.65},
+ {t:'cact',x:635,y:655},{t:'cact',x:975,y:545},{t:'cact',x:905,y:410},
+ {t:'peak',x:1295,y:345,s:0.8},{t:'peak',x:1435,y:505,s:0.7},{t:'peak',x:1120,y:485,s:0.6},
+ {t:'cry',x:1235,y:610},{t:'cry',x:1395,y:560}];
+
+const MCHARS={piggy:{idle:'piggy',walk:['piggyA','piggyB'],h:46,native:1},
+              liggy:{idle:'liggy',walk:['liggy','liggyB'],h:50,native:-1},
+              ziggy:{idle:'ziggy',walk:['ziggy','ziggy'],h:46,native:1}};
+function heroKey(){ try{const s=JSON.parse(localStorage.getItem(SAVE_GAME)||'{}'); return MCHARS[s.hero]?s.hero:'piggy';}catch(e){return 'piggy';} }
+
+let MAC=null; function mbeep(f,d,t,v){try{if(!MAC)MAC=new(window.AudioContext||window.webkitAudioContext)();
+  const o=MAC.createOscillator(),g=MAC.createGain();o.type=t||'square';o.frequency.value=f;g.gain.value=v||0.04;
+  o.connect(g);g.connect(MAC.destination);o.start();g.gain.exponentialRampToValueAtTime(0.0001,MAC.currentTime+(d||0.1));o.stop(MAC.currentTime+(d||0.1));}catch(e){}}
+
+const mState={raf:null,frame:0,node:0,target:0,dist:0,cam:{x:0,y:0},walking:false,face:1,anim:0,parts:[],listeners:[],held:{l:false,r:false},hero:'piggy'};
+function maxReach(){ let m=0; for(let i=0;i<LEVELS.length;i++) if(unlocked(i)) m=i; return m; }
+function mOn(el,ev,fn){ el.addEventListener(ev,fn); mState.listeners.push([el,ev,fn]); }
+function camWant(p){ return {x:Math.max(0,Math.min(WORLDW-MVW,p.x-MVW/2)),
+                             y:Math.max(0,Math.min(WORLDH-MVH,p.y-MVH/2-30))}; }
+
+function startMap(){
+  stopMap(); mapOn=true;
+  const mr=maxReach();
+  let saved=+(localStorage.getItem('ppmap:pos')||0);
+  if(!(saved>=0&&saved<LEVELS.length)) saved=0;
+  mState.node=mState.target=Math.min(saved,mr);
+  mState.dist=NODE_D[mState.node];
+  mState.cam=camWant(posAt(mState.dist));
+  mState.walking=false; mState.parts=[]; mState.frame=0; mState.hero=heroKey();
+  mState.held={l:false,r:false};
+  const held=mState.held;
+  fitMap(); mOn(window,'resize',fitMap);
+  function tryEnter(){ if(!mState.walking&&mapOn){ mbeep(700,0.08,'triangle',0.05); startLevel(mState.node); } }
+  function kd(e){ if(!mapOn)return;
+    if(e.code==='ArrowLeft'||e.code==='KeyA')held.l=true;
+    if(e.code==='ArrowRight'||e.code==='KeyD')held.r=true;
+    if(['Space','ArrowUp','Enter','KeyW'].includes(e.code)){tryEnter();e.preventDefault();} }
+  function ku(e){ if(e.code==='ArrowLeft'||e.code==='KeyA')held.l=false;
+    if(e.code==='ArrowRight'||e.code==='KeyD')held.r=false; }
+  mOn(window,'keydown',kd); mOn(window,'keyup',ku);
+  [['gLeft','l'],['gRight','r']].forEach(pair=>{ const el=document.getElementById(pair[0]);
+    mOn(el,'pointerdown',e=>{e.preventDefault();held[pair[1]]=true;});
+    ['pointerup','pointerleave','pointercancel'].forEach(ev=>mOn(el,ev,e=>{e.preventDefault();held[pair[1]]=false;})); });
+  mOn(document.getElementById('gJump'),'pointerdown',e=>{e.preventDefault();tryEnter();});
+  mOn(MCV,'pointerdown',e=>{ const r=MCV.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width*MVW+mState.cam.x, y=(e.clientY-r.top)/r.height*MVH+mState.cam.y;
+    for(let i=0;i<=maxReach();i++){ const p=posAt(NODE_D[i]);
+      if(Math.hypot(p.x-x,p.y-y)<36){ if(i===mState.node)tryEnter(); else {mState.target=i;mbeep(520,0.05,'triangle',0.04);} return; } } });
+  loopMap();
+}
+function stopMap(){ mapOn=false; if(mState.raf)cancelAnimationFrame(mState.raf); mState.raf=null;
+  mState.listeners.forEach(l=>l[0].removeEventListener(l[1],l[2])); mState.listeners=[]; }
+function loopMap(){ if(!mapOn)return; updateMap(); drawMap(); mState.raf=requestAnimationFrame(loopMap); }
+
+function updateMap(){ const S=mState; S.frame++;
+  const mr=maxReach();
+  if(!S.walking){ if(S.held.r&&S.node<mr)S.target=S.node+1;
+    else if(S.held.l&&S.node>0)S.target=S.node-1; }
+  if(S.target!==S.node){ S.walking=true;
+    const goal=NODE_D[S.target], dir=goal>S.dist?1:-1;
+    S.dist+=dir*2.7; S.anim+=0.24;
+    const pp=posAt(S.dist); if(Math.abs(pp.dx)>2) S.face=(pp.dx>0?1:-1)*dir; // vänd åt gångriktningen
+    if(S.frame%7===0) S.parts.push({x:pp.x-S.face*10,y:pp.y+2,vx:-S.face*0.4,vy:-0.4-Math.random()*0.4,life:16,max:16});
+    if((dir>0&&S.dist>=goal)||(dir<0&&S.dist<=goal)){ S.dist=goal; S.node=S.target; S.walking=false; S.anim=0;
+      try{localStorage.setItem('ppmap:pos',''+S.node);}catch(e){}
+      mbeep(620,0.06,'triangle',0.04); } }
+  else S.walking=false;
+  for(const q of S.parts){q.life--;q.x+=q.vx;q.y+=q.vy;}
+  S.parts=S.parts.filter(q=>q.life>0);
+  const want=camWant(posAt(S.dist));
+  S.cam.x+=(want.x-S.cam.x)*0.1; S.cam.y+=(want.y-S.cam.y)*0.1;
+}
+
+// ---- ritning ----
+function mrr(x,y,w,h,r){MX.beginPath();MX.moveTo(x+r,y);MX.arcTo(x+w,y,x+w,y+h,r);MX.arcTo(x+w,y+h,x,y+h,r);MX.arcTo(x,y+h,x,y,r);MX.arcTo(x,y,x+w,y,r);MX.closePath();}
+function seeded(n){ return (Math.sin(n*127.1)*43758.5453)%1<0?((Math.sin(n*127.1)*43758.5453)%1)+1:(Math.sin(n*127.1)*43758.5453)%1; }
+function dTree(x,y){ MX.fillStyle='rgba(0,0,0,.18)';MX.beginPath();MX.ellipse(x+4,y+3,20,8,0,0,7);MX.fill();
+  MX.fillStyle='#6e4520';MX.fillRect(x-4,y-30,8,30);
+  MX.fillStyle='#3f8a34';MX.beginPath();MX.ellipse(x,y-42,24,20,0,0,7);MX.ellipse(x-16,y-30,15,12,0,0,7);MX.ellipse(x+16,y-30,15,12,0,0,7);MX.fill();
+  MX.fillStyle='#5fb84e';MX.beginPath();MX.ellipse(x-4,y-47,13,9,0,0,7);MX.fill(); }
+function dBush(x,y){ MX.fillStyle='rgba(0,0,0,.15)';MX.beginPath();MX.ellipse(x+2,y+2,17,6,0,0,7);MX.fill();
+  MX.fillStyle='#3f8a34';MX.beginPath();MX.ellipse(x,y-9,16,11,0,0,7);MX.ellipse(x-12,y-4,10,7,0,0,7);MX.ellipse(x+12,y-4,10,7,0,0,7);MX.fill();
+  MX.fillStyle='#5fb84e';MX.beginPath();MX.ellipse(x-3,y-12,9,6,0,0,7);MX.fill(); }
+function dPyr(x,y,s){ s=s||1; MX.fillStyle='rgba(0,0,0,.16)';MX.beginPath();MX.ellipse(x+8*s,y+4,80*s,14*s,0,0,7);MX.fill();
+  MX.fillStyle='#d8b174';MX.beginPath();MX.moveTo(x-80*s,y);MX.lineTo(x,y-95*s);MX.lineTo(x+80*s,y);MX.closePath();MX.fill();
+  MX.fillStyle='#c99a5b';MX.beginPath();MX.moveTo(x,y-95*s);MX.lineTo(x+80*s,y);MX.lineTo(x+26*s,y);MX.closePath();MX.fill(); }
+function dCact(x,y){ MX.fillStyle='rgba(0,0,0,.15)';MX.beginPath();MX.ellipse(x+2,y+2,12,5,0,0,7);MX.fill();
+  MX.fillStyle='#4f9e46';mrr(x-5,y-28,10,28,5);MX.fill();
+  mrr(x-15,y-21,8,11,4);MX.fill(); mrr(x+7,y-17,8,11,4);MX.fill();
+  MX.fillRect(x-12,y-12,5,4); MX.fillRect(x+7,y-8,5,4); }
+function dPeak(x,y,s){ s=s||1; MX.fillStyle='rgba(0,0,0,.15)';MX.beginPath();MX.ellipse(x+8*s,y+4,78*s,13*s,0,0,7);MX.fill();
+  MX.fillStyle='#6f97bd';MX.beginPath();MX.moveTo(x-78*s,y);MX.lineTo(x,y-115*s);MX.lineTo(x+78*s,y);MX.closePath();MX.fill();
+  MX.fillStyle='#5a80a6';MX.beginPath();MX.moveTo(x,y-115*s);MX.lineTo(x+78*s,y);MX.lineTo(x+24*s,y);MX.closePath();MX.fill();
+  MX.fillStyle='#f2f8fd';MX.beginPath();MX.moveTo(x-24*s,y-78*s);MX.lineTo(x,y-115*s);MX.lineTo(x+24*s,y-78*s);
+  MX.lineTo(x+13*s,y-69*s);MX.lineTo(x,y-80*s);MX.lineTo(x-13*s,y-69*s);MX.closePath();MX.fill(); }
+function dCry(x,y){ MX.fillStyle='rgba(0,0,0,.14)';MX.beginPath();MX.ellipse(x+1,y+2,10,4,0,0,7);MX.fill();
+  MX.strokeStyle='#a9d6ec';MX.lineWidth=3;MX.lineCap='round';
+  for(let b=-1;b<=1;b++){MX.beginPath();MX.moveTo(x+b*6,y);MX.lineTo(x+b*8,y-13-((b+2)%2)*4);MX.stroke();}
+  MX.fillStyle='rgba(255,255,255,.95)';MX.fillRect(x-1,y-13,3,3); }
+function sprM(img,cxx,feetY,H,flip){ if(!img||!img.complete||!img.naturalWidth)return;
+  const sc=H/img.height,w=img.width*sc;
+  MX.save();MX.translate(cxx-w/2,feetY-H); if(flip){MX.translate(w,0);MX.scale(-1,1);}
+  MX.drawImage(img,0,0,w,H);MX.restore(); }
+
+function drawMap(){ MX.setTransform(MSCALE,0,0,MSCALE,0,0);
+  const S=mState, cx=S.cam.x, cy=S.cam.y, mr=maxReach();
+  // hav
+  const g=MX.createLinearGradient(0,0,0,MVH);
+  g.addColorStop(0,'#4fb3c9'); g.addColorStop(1,'#2e7f9e');
+  MX.fillStyle=g; MX.fillRect(0,0,MVW,MVH);
+  // vågor (världsförankrade streck som pulserar)
+  MX.strokeStyle='rgba(255,255,255,.30)'; MX.lineWidth=2; MX.lineCap='round';
+  for(let i=0;i<48;i++){ const wx=(i*197)%WORLDW, wy=(i*131+((i*53)%60))%WORLDH;
+    const x=wx-cx, y=wy-cy; if(x<-30||x>MVW+30||y<-20||y>MVH+20)continue;
+    const ph=Math.sin(S.frame*0.04+i*1.7); if(ph<0)continue;
+    MX.globalAlpha=ph*0.8;
+    MX.beginPath();MX.moveTo(x-8,y);MX.quadraticCurveTo(x,y-3,x+8,y);MX.stroke(); }
+  MX.globalAlpha=1;
+  // grundvatten + strand + landfyllnad (tre pass av samma cirklar)
+  MX.fillStyle='rgba(190,230,235,.45)';
+  for(const isl of ISLES)for(const c of isl.c){MX.beginPath();MX.arc(c[0]-cx,c[1]-cy,c[2]+26,0,7);MX.fill();}
+  MX.fillStyle='#e6d3a3';
+  for(const isl of ISLES)for(const c of isl.c){MX.beginPath();MX.arc(c[0]-cx,c[1]-cy,c[2]+13,0,7);MX.fill();}
+  for(const isl of ISLES){ MX.fillStyle=FILLC[isl.r];
+    for(const c of isl.c){MX.beginPath();MX.arc(c[0]-cx,c[1]-cy,c[2],0,7);MX.fill();} }
+  // terrängtextur (deterministiskt utspridda prickar per cirkel)
+  for(const isl of ISLES){ if(isl.r==='sand')continue;
+    for(const c of isl.c){ for(let k=0;k<26;k++){
+      const a=seeded(c[0]+k*13)*6.28, rr2=Math.sqrt(Math.abs(seeded(c[1]+k*7)))*c[2]*0.86;
+      const x=c[0]+Math.cos(a)*rr2-cx, y=c[1]+Math.sin(a)*rr2-cy;
+      if(x<-10||x>MVW+10||y<-10||y>MVH+10)continue;
+      if(isl.r==='green'){ MX.fillStyle=k%5===0?'#e39ab5':'#5da84f';
+        if(k%5===0){MX.fillRect(x,y,3,3);MX.fillStyle='#f4d64a';MX.fillRect(x+1,y+1,1.5,1.5);}
+        else {MX.fillRect(x,y,2,4);MX.fillRect(x+3,y+1,2,3);} }
+      else if(isl.r==='desert'){ MX.strokeStyle='#d9bd7f';MX.lineWidth=2;
+        MX.beginPath();MX.moveTo(x-6,y);MX.quadraticCurveTo(x,y-3,x+6,y);MX.stroke(); }
+      else { const tw=Math.sin(S.frame*0.05+k*2.3);
+        if(tw>0.3){MX.fillStyle='rgba(255,255,255,'+(tw*0.9)+')';MX.fillRect(x,y,2,2);}
+        MX.fillStyle='#d7e9f4';MX.fillRect(x+4,y+3,3,2); } } } }
+  // stigen — stenplattor med skugga
+  const total=PLEN[PLEN.length-1];
+  for(let d=0;d<=total;d+=24){ const p=posAt(d), x=p.x-cx, y=p.y-cy;
+    if(x<-20||x>MVW+20||y<-20||y>MVH+20)continue;
+    MX.fillStyle='rgba(90,64,36,.30)';MX.beginPath();MX.ellipse(x+1.5,y+2,8,4.4,0,0,7);MX.fill();
+    MX.fillStyle='#f4e6c8';MX.beginPath();MX.ellipse(x,y,8,4.6,0,0,7);MX.fill();
+    MX.fillStyle='rgba(190,160,110,.5)';MX.beginPath();MX.ellipse(x,y+1.4,5.5,2.4,0,0,7);MX.fill(); }
+  // noder (plattan; emoji/stjärnor ritas i djuppasset så hjälten kan gå bakom)
+  for(let i=0;i<LEVELS.length;i++){ const L=LEVELS[i], p=posAt(NODE_D[i]), x=p.x-cx, y=p.y-cy;
+    if(x<-60||x>MVW+60||y<-60||y>MVH+60)continue;
+    const st=progress()[L.id]||0, lock=!unlocked(i);
+    if(!lock&&st===0&&i===mr){ const pu=3+Math.sin(S.frame*0.09)*2.4;
+      MX.strokeStyle='rgba(244,214,74,.9)';MX.lineWidth=3;
+      MX.beginPath();MX.ellipse(x,y,20+pu,12+pu*0.6,0,0,7);MX.stroke(); }
+    MX.fillStyle='rgba(0,0,0,.25)';MX.beginPath();MX.ellipse(x+2,y+3,18,10,0,0,7);MX.fill();
+    MX.fillStyle=lock?'#6b6478':(st>0?'#6bbf59':'#f4d64a');
+    MX.beginPath();MX.ellipse(x,y,17,10.5,0,0,7);MX.fill();
+    MX.strokeStyle='#2a2830';MX.lineWidth=3;MX.beginPath();MX.ellipse(x,y,17,10.5,0,0,7);MX.stroke();
+    MX.fillStyle='rgba(255,255,255,.4)';MX.beginPath();MX.ellipse(x-5,y-3,6,3,0,0,7);MX.fill(); }
+  // djup-sorterat: dekor + hjälte + nodmarkörer (emoji över plattan)
+  const draws=[];
+  for(const d of DECOR){ const x=d.x-cx,y=d.y-cy; if(x<-120||x>MVW+120||y<-40||y>MVH+150)continue;
+    draws.push({y:d.y,f:()=>{ if(d.t==='tree')dTree(x,y); else if(d.t==='bush')dBush(x,y);
+      else if(d.t==='pyr')dPyr(x,y,d.s); else if(d.t==='cact')dCact(x,y);
+      else if(d.t==='peak')dPeak(x,y,d.s); else dCry(x,y); }}); }
+  for(let i=0;i<LEVELS.length;i++){ const L=LEVELS[i], p=posAt(NODE_D[i]), x=p.x-cx, y=p.y-cy;
+    if(x<-60||x>MVW+60||y<-60||y>MVH+60)continue;
+    const st=progress()[L.id]||0, lock=!unlocked(i);
+    draws.push({y:p.y-1,f:()=>{ MX.textAlign='center'; MX.font='21px sans-serif';
+      MX.fillText(lock?'\uD83D\uDD12':L.emoji,x,y-16);
+      if(st>0){MX.font='11px sans-serif';MX.fillText('\u2B50'.repeat(st),x,y+24);} }}); }
+  const hp=posAt(S.dist), hx=hp.x-cx, hy=hp.y-cy, HC=MCHARS[S.hero];
+  draws.push({y:hp.y+0.5,f:()=>{
+    MX.fillStyle='rgba(0,0,0,.3)';MX.beginPath();MX.ellipse(hx,hy+2,14,5,0,0,7);MX.fill();
+    const bob=S.walking?Math.sin(S.anim*3)*2:Math.sin(S.frame*0.05)*1.5;
+    const img=S.walking?MIMG[HC.walk[Math.floor(S.anim)%2]]:MIMG[HC.idle];
+    const flip=(HC.native===-1)?(S.face>0):(S.face<0);
+    sprM(img,hx,hy-2+bob,HC.h,flip); }});
+  draws.sort((a,b)=>a.y-b.y).forEach(d=>d.f());
+  // damm
+  for(const q of S.parts){ MX.globalAlpha=Math.max(0,q.life/q.max);
+    MX.fillStyle='#f4e6c8'; MX.fillRect(q.x-cx-1.5,q.y-cy-1.5,3,3); }
+  MX.globalAlpha=1;
+  // världsnamn
+  MX.textAlign='center';
+  [['\uD83C\uDF31 Gr\u00e4s\u00e4ngarna',330,368],['\uD83C\uDFDC\uFE0F \u00d6knen',830,332],['\u2744\uFE0F Isbergen',1300,278]].forEach(wn=>{
+    const x=wn[1]-cx, y=wn[2]-cy; if(x<-200||x>MVW+200||y<-40||y>MVH+40)return;
+    MX.font='bold 21px system-ui'; MX.fillStyle='rgba(15,10,25,.55)'; MX.fillText(wn[0],x+2,y+2);
+    MX.fillStyle='rgba(255,255,255,.95)'; MX.fillText(wn[0],x,y); });
+  // HUD: titel + plånbok
+  MX.font='bold 18px system-ui'; MX.textAlign='left';
+  MX.fillStyle='rgba(15,10,25,.55)'; MX.fillText('\uD83D\uDDFA\uFE0F V\u00e4rldskartan',66,32);
+  MX.fillStyle='#fff'; MX.fillText('\uD83D\uDDFA\uFE0F V\u00e4rldskartan',64,30);
+  const wtxt='\uD83E\uDE99 '+walletNow();
+  MX.font='bold 17px system-ui';
+  const ww=MX.measureText(wtxt).width+26;
+  MX.fillStyle='rgba(20,12,40,.55)'; mrr(MVW-ww-14,12,ww,32,12); MX.fill();
+  MX.strokeStyle='#f4d64a'; MX.lineWidth=2; mrr(MVW-ww-14,12,ww,32,12); MX.stroke();
+  MX.fillStyle='#f4d64a'; MX.fillText(wtxt,MVW-ww-1,34);
+  // panel med aktuell bana
+  const L=LEVELS[S.node], st=progress()[L.id]||0;
+  const pw=340, px=MVW/2-pw/2, py=MVH-64;
+  MX.fillStyle='rgba(20,12,40,.72)'; mrr(px,py,pw,52,14); MX.fill();
+  MX.strokeStyle='rgba(244,214,74,.8)'; MX.lineWidth=2; mrr(px,py,pw,52,14); MX.stroke();
+  MX.textAlign='center'; MX.fillStyle='#f4d64a'; MX.font='bold 17px system-ui';
+  MX.fillText(L.emoji+' '+L.name+'  '+'\u2B50'.repeat(st), MVW/2, py+21);
+  MX.fillStyle='#d9d0ef'; MX.font='13px system-ui';
+  MX.fillText(S.walking?'\u2026':'HOPP = spela   \u25C0 \u25B6 = g\u00e5   (eller tryck p\u00e5 en bana)', MVW/2, py+41);
+  MX.textAlign='left';
+}
+
+function startLevel(i){
+  curIdx=i; const L=LEVELS[i];
+  stopMap();
+  document.getElementById('map').classList.add('off');
+  document.getElementById('game').classList.add('on');
+  document.getElementById('banner').classList.remove('on');
+  if(handle)handle.stop();
+  handle=runGame(document.getElementById('cv'), L.data, ASSETS, {
+    theme:L.data.theme, move:L.move, saveKey:SAVE_GAME,
+    title:[
+      {t:L.name,s:40,y:110,c:'#f4d64a'},
+      {t:WORLDS[L.world].name,s:20,y:146,c:'#fff'},
+      {t:'\u2B50 Klara banan   \u2B50 R\u00e4dda alla kompisar   \u2B50 Ta alla mynt',s:15,y:196,c:'#ffe9c0'},
+      {t:'V\u00e4lj hj\u00e4lte \u2014 tryck sen var som helst f\u00f6r att b\u00f6rja',s:16,y:250,c:'#f4d64a'}
+    ],
+    onEnd:res=>{ if(!res.won)return;
+      const stars=1+(res.friendsTotal>0&&res.rescued===res.friendsTotal?1:0)+(res.allCoins?1:0);
+      setStars(L.id,stars);
+      showBanner(L,res,stars);
+    }
+  });
+}
+function showBanner(L,res,stars){
+  document.getElementById('bTitle').textContent=L.name+' klarad!';
+  ['s1','s2','s3'].forEach((id,i)=>{
+    const el=document.getElementById(id); el.className=i<stars?'won':'';
+  });
+  document.getElementById('bCrit').innerHTML=
+    '\u2705 Banan klarad<br>'+
+    (res.rescued===res.friendsTotal&&res.friendsTotal>0?'\u2705':'\u2B1C')+' Kompisar: '+res.rescued+'/'+res.friendsTotal+'<br>'+
+    (res.allCoins?'\u2705':'\u2B1C')+' Mynt: '+res.coinsGot+'/'+res.coinsTotal;
+  setTimeout(()=>document.getElementById('banner').classList.add('on'),900);
+}
+function toMap(){ if(handle){handle.stop();handle=null;}
+  document.getElementById('banner').classList.remove('on');
+  document.getElementById('game').classList.remove('on');
+  document.getElementById('map').classList.remove('off');
+  startMap(); }
+document.getElementById('toMap').onclick=toMap;
+document.getElementById('bMap').onclick=toMap;
+document.getElementById('bAgain').onclick=()=>{ document.getElementById('banner').classList.remove('on'); startLevel(curIdx); };
+startMap();
+</script></body></html>
